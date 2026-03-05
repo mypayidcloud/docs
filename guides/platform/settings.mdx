@@ -1,0 +1,98 @@
+---
+title: "Settings"
+description: "Configure organization-level security settings, session policies, and token lifetimes."
+---
+
+Organization Settings let you configure security policies that apply to all users and applications in your organization — including password requirements, session timeouts, multi-factor authentication, and OAuth token lifetimes.
+
+---
+
+## Getting Current Settings
+
+```bash
+curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/settings \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## Updating Settings
+
+Use `PATCH` to update one or more settings at a time:
+
+```bash
+curl -X PATCH https://api.payid.aevr.space/api/v1/organizations/<orgId>/settings \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "security": {
+      "mfaRequired": true,
+      "passwordMinLength": 12,
+      "maxLoginAttempts": 5,
+      "sessionTimeout": 86400
+    }
+  }'
+```
+
+---
+
+## Security Settings
+
+| Field | Type | Description |
+|---|---|---|
+| `mfaRequired` | boolean | Require MFA for all organization members |
+| `passwordMinLength` | integer (8–32) | Minimum password length |
+| `maxLoginAttempts` | integer (3–10) | Lockout threshold before CAPTCHA or block |
+| `sessionTimeout` | integer (seconds) | Idle session timeout |
+| `allowedIpRanges` | string[] | CIDR ranges that may access the API |
+
+---
+
+## Token Settings
+
+Control the lifetime of access tokens, refresh tokens, and ID tokens issued for OAuth clients in your organization:
+
+```json
+{
+  "tokenSettings": {
+    "accessTokenTTL": 3600,
+    "refreshTokenTTL": 2592000,
+    "idTokenTTL": 3600,
+    "refreshTokenRotation": true
+  }
+}
+```
+
+| Field | Default | Min | Max |
+|---|---|---|---|
+| `accessTokenTTL` | 3600s (1h) | 300s | 86400s (24h) |
+| `refreshTokenTTL` | 2592000s (30d) | 3600s | 7776000s (90d) |
+| `idTokenTTL` | 3600s (1h) | 300s | 86400s (24h) |
+
+---
+
+## Webhook Settings
+
+Configure an organization-wide webhook endpoint to receive events from PayID (KYC updates, member changes, etc.):
+
+```json
+{
+  "webhookUrl": "https://yourapp.com/webhooks/payid",
+  "rotateWebhookSecret": true
+}
+```
+
+Setting `rotateWebhookSecret` to `true` will generate a new HMAC signing secret for webhook validation. Retrieve and update your server's secret after doing this.
+
+---
+
+## Rate Limit Settings
+
+```json
+{
+  "rateLimits": {
+    "requestsPerMinute": 500,
+    "tokensPerHour": 1000
+  }
+}
+```

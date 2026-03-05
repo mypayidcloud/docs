@@ -1,33 +1,30 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Explore the full PayID Platform REST API with 63 endpoints across 14 categories."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The PayID Platform API is organized around REST. It uses standard HTTP methods, returns JSON responses, and uses conventional HTTP status codes to indicate success or failure.
 
-## Welcome
+## Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+```
+https://api.payid.aevr.space
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+All API requests require authentication. See the [Authentication Guide](/guides/authentication/overview) for details.
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+```bash
+# Using a Bearer access token
+Authorization: Bearer <access_token>
+
+# Using an API Key
+Authorization: ApiKey <api_key>
 ```
+
+## Endpoints
+
+The API reference is auto-generated from live OpenAPI annotations directly in the codebase, so it always reflects the current state of the API.
+
+Browse endpoints by category using the sidebar on the left.
