@@ -1,0 +1,103 @@
+---
+title: "API Keys"
+description: "Create and manage programmatic API keys for server-to-server access to the PayID Platform."
+---
+
+API Keys provide long-lived, organization-scoped credentials for authenticating server-side API requests — without needing a full OAuth authorization flow.
+
+---
+
+## Creating an API Key
+
+```bash
+curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production Backend",
+    "expiresAt": "2026-12-31T00:00:00Z",
+    "permissions": ["org:read", "member:read", "apikey:read"]
+  }'
+```
+
+<Warning>
+  The full API key value is only returned **once** at creation. Copy it immediately and store it in a secret manager. It cannot be retrieved again.
+</Warning>
+
+The response includes the full key under `key`:
+
+```json
+{
+  "id": "ak_...",
+  "name": "Production Backend",
+  "key": "ak_live_abc123...",
+  "permissions": ["org:read", "member:read", "apikey:read"],
+  "createdAt": "2025-03-05T00:00:00Z",
+  "expiresAt": "2026-12-31T00:00:00Z"
+}
+```
+
+---
+
+## Using an API Key
+
+Include the key in the `Authorization` header using the `ApiKey` scheme:
+
+```bash
+curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
+  -H "Authorization: ApiKey ak_live_abc123..."
+```
+
+---
+
+## Available Permissions
+
+API keys can be scoped to specific permissions:
+
+| Permission | What It Allows |
+|---|---|
+| `org:read` | Read organization details |
+| `org:update` | Update organization settings |
+| `member:read` | List and view org members |
+| `member:invite` | Invite new members |
+| `apikey:read` | List API keys |
+| `apikey:create` | Create new API keys |
+| `client:read` | View OAuth client configurations |
+| `client:create` | Register new OAuth clients |
+| `kyc:read` | View KYC verification records |
+
+---
+
+## Listing and Revoking Keys
+
+### List all keys
+
+```bash
+curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+  -H "Authorization: Bearer <access_token>"
+```
+
+### Get a specific key (metadata only)
+
+```bash
+curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys/<keyId> \
+  -H "Authorization: Bearer <access_token>"
+```
+
+### Revoke a key
+
+```bash
+curl -X DELETE https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys/<keyId> \
+  -H "Authorization: Bearer <access_token>"
+```
+
+Revoked keys are immediately invalidated. Any request using a revoked key will receive a `401 Unauthorized`.
+
+---
+
+## Best Practices
+
+- **Use short expiry dates** for keys used in CI/CD pipelines.
+- **Apply least-privilege permissions** — only grant the permissions the key actually needs.
+- **Rotate keys regularly** — revoke and recreate keys on a schedule, or immediately after any suspected leak.
+- **Never commit keys to source control.** Use environment variables or a secrets manager like AWS Secrets Manager or HashiCorp Vault.
