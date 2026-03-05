@@ -2,10 +2,11 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PayID Platform API",
-    "description": "API documentation for PayID Platform including Authentication, Organizations, API Keys, and KYC flows.",
+    "description": "API documentation for the PayID Platform — including OAuth 2.0 Authentication, Organization Management, API Keys, KYC Verification, Analytics, Billing, and more.",
     "version": "1.0.0",
-    "license": {
-      "name": "MIT"
+    "contact": {
+      "name": "PayID Support",
+      "url": "https://docs.payid.aevr.space"
     }
   },
   "servers": [
@@ -14,13 +15,8 @@
       "description": "Production Server"
     },
     {
-      "url": "http://localhost:4000",
+      "url": "http://localhost:6960",
       "description": "Local Development Server"
-    }
-  ],
-  "security": [
-    {
-      "bearerAuth": []
     }
   ],
   "components": {
@@ -29,72 +25,521 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Enter your Bearer token in the format **Bearer &lt;token&gt;**"
+        "description": "OAuth 2.0 Access Token. Format: `Bearer <token>`"
       },
       "apiKeyAuth": {
         "type": "apiKey",
         "in": "header",
-        "name": "x-api-key",
-        "description": "API Key for programmatic access"
+        "name": "Authorization",
+        "description": "API Key via Authorization header. Format: `ApiKey <key>`"
+      },
+      "xApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "API Key via X-Api-Key header. Format: `<key>` (no prefix needed)"
       }
     },
     "schemas": {
       "Error": {
         "type": "object",
         "properties": {
-          "error": {
-            "type": "string"
-          },
+          "error": { "type": "string", "example": "unauthorized" },
           "error_description": {
-            "type": "string"
+            "type": "string",
+            "example": "Invalid or expired token"
           }
         }
       },
-      "SuccessResponse": {
+      "PaginationMeta": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "message": {
-            "type": "string"
-          }
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 20 },
+          "total": { "type": "integer", "example": 100 }
         }
       }
     }
   },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "OAuth login, registration, and session management"
+    },
+    {
+      "name": "OAuth 2.0",
+      "description": "OAuth 2.0 standard endpoints (authorize, token, revoke, introspect)"
+    },
+    {
+      "name": "OpenID Connect",
+      "description": "OIDC discovery and userinfo endpoints"
+    },
+    {
+      "name": "Organizations",
+      "description": "Create and manage organizations"
+    },
+    {
+      "name": "Members",
+      "description": "Invite and manage organization members"
+    },
+    {
+      "name": "OAuth Clients",
+      "description": "Register and configure OAuth client applications"
+    },
+    { "name": "Client Secrets", "description": "Manage OAuth client secrets" },
+    {
+      "name": "API Keys",
+      "description": "Create and manage programmatic API keys"
+    },
+    {
+      "name": "Settings",
+      "description": "Organization security and token settings"
+    },
+    {
+      "name": "Analytics",
+      "description": "Usage, MAU, error rate, and latency metrics"
+    },
+    { "name": "Audit Logs", "description": "View immutable audit trails" },
+    {
+      "name": "Billing",
+      "description": "Manage billing information and subscription tier"
+    },
+    { "name": "Users", "description": "User profile and lookup" },
+    { "name": "KYC Verification", "description": "Identity verification flows" }
+  ],
   "paths": {
-    "/oauth/login": {
-      "post": {
-        "summary": "Login with Password",
-        "description": "Authenticates user with email and password.",
-        "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
+    "/api/v1/organizations/{orgId}/analytics/usage": {
+      "get": {
+        "summary": "Get Usage Metrics",
+        "description": "Returns OAuth token issuance, active token, and overall API usage metrics for the organization.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           },
-          "400": {
-            "description": "Bad Request",
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter metrics by specific OAuth client"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Usage metrics" },
+          "403": {
+            "description": "Requires analytics:read permission",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/analytics/mau": {
+      "get": {
+        "summary": "Get Monthly Active Users",
+        "description": "Returns Monthly Active Users (MAU) statistics for the organization.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           },
-          "401": {
-            "description": "Unauthorized",
+          {
+            "name": "month",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2024-01"
+            },
+            "description": "Month to query in ISO 8601 format (default is current month)"
+          }
+        ],
+        "responses": {
+          "200": { "description": "MAU statistics" },
+          "403": {
+            "description": "Requires analytics:read permission",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/analytics/errors": {
+      "get": {
+        "summary": "Get Error Analytics",
+        "description": "Returns error rate and distribution analytics for the organization.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Error analytics" },
+          "403": {
+            "description": "Requires analytics:read permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/analytics/latency": {
+      "get": {
+        "summary": "Get Latency Metrics",
+        "description": "Returns API latency percentile (p50, p95, p99) metrics for the organization.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Latency metrics" },
+          "403": {
+            "description": "Requires analytics:read permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/api-keys": {
+      "post": {
+        "summary": "Create API Key",
+        "description": "Creates a new API key for the organization. The full key value is returned only once in this response — store it securely as it cannot be retrieved again.\n",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "scopes"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "Production API Key"
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["org:read", "client:read"]
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional expiry date in ISO 8601 format"
+                  }
                 }
               }
             }
           }
         },
+        "responses": {
+          "201": {
+            "description": "API key created — includes the full key value (only shown once)"
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List API Keys",
+        "description": "Returns all API keys for the organization, excluding the actual key values.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "isRevoked",
+            "in": "query",
+            "schema": { "type": "boolean" },
+            "description": "Filter by revocation status"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of API keys" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/api-keys/{keyId}": {
+      "get": {
+        "summary": "Get API Key",
+        "description": "Returns metadata for a specific API key (key value is never returned after creation).",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "API key metadata" },
+          "404": {
+            "description": "API key not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Revoke API Key",
+        "description": "Permanently revokes an API key. Revoked keys cannot be re-enabled.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "API key revoked" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "API key not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/audit-logs": {
+      "get": {
+        "summary": "List Audit Logs",
+        "description": "Returns a paginated, filterable list of audit log events for the organization. Logs are immutable.",
+        "tags": ["Audit Logs"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "eventType",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by event type (e.g. `member.invite`, `client.delete`)"
+          },
+          {
+            "name": "actorId",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by the user ID who performed the action"
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated audit log entries" },
+          "403": {
+            "description": "Requires audit:read permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/audit-logs/{logId}": {
+      "get": {
+        "summary": "Get Audit Log Entry",
+        "description": "Returns a single audit log entry by ID.",
+        "tags": ["Audit Logs"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "logId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Audit log entry" },
+          "404": {
+            "description": "Log entry not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/login": {
+      "post": {
+        "summary": "Login with Password",
+        "description": "Authenticates a user with email and password. Returns a session cookie or token depending on `return_token`.",
+        "tags": ["Authentication"],
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -103,899 +548,1599 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "format": "email"
+                    "format": "email",
+                    "example": "user@example.com"
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "MySecureP@ssword1"
                   },
                   "return_url": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "URL to redirect to after login"
                   },
                   "return_token": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, returns a JWT token instead of setting a session cookie"
                   },
                   "client_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "OAuth client ID for context"
                   }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "security": []
-      }
-    },
-    "/oauth/register": {
-      "post": {
-        "summary": "Register New User",
-        "description": "Registers a new user.",
-        "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           }
         },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/register": {
+      "post": {
+        "summary": "Register New User",
+        "description": "Creates a new user account and logs them in.",
+        "tags": ["Authentication"],
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["email", "password", "firstName", "lastName"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "password": {
-                    "type": "string"
-                  },
-                  "firstName": {
-                    "type": "string"
-                  },
-                  "lastName": {
-                    "type": "string"
-                  },
-                  "phone": {
-                    "type": "string"
-                  },
-                  "country": {
-                    "type": "string"
-                  },
-                  "dateOfBirth": {
-                    "type": "string"
-                  },
-                  "address": {
-                    "type": "object"
-                  },
-                  "return_url": {
-                    "type": "string"
-                  },
-                  "return_token": {
-                    "type": "boolean"
-                  },
-                  "client_id": {
-                    "type": "string"
-                  }
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" },
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "country": { "type": "string" },
+                  "dateOfBirth": { "type": "string" },
+                  "address": { "type": "object" },
+                  "return_url": { "type": "string" },
+                  "return_token": { "type": "boolean" },
+                  "client_id": { "type": "string" }
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "security": []
+        "responses": {
+          "201": { "description": "Registration successful" },
+          "400": {
+            "description": "Validation error or email already exists",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
       }
     },
     "/oauth/login/magic-link/request": {
       "post": {
         "summary": "Request Magic Link",
-        "description": "Sends a magic link for authentication.",
+        "description": "Sends a one-time magic link to the user's email address for passwordless login.",
         "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["email"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "return_url": {
-                    "type": "string"
-                  },
+                  "email": { "type": "string", "format": "email" },
+                  "return_url": { "type": "string" },
                   "shouldCreate": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, creates the user account if not found"
                   },
-                  "firstName": {
-                    "type": "string"
-                  },
-                  "lastName": {
-                    "type": "string"
-                  }
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" }
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "security": []
+        "responses": {
+          "200": { "description": "Magic link sent" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
       }
     },
     "/oauth/login/magic-link/verify": {
       "get": {
         "summary": "Verify Magic Link",
-        "description": "Verifies a magic link token.",
+        "description": "Verifies a magic link token and creates a session or returns a JWT.",
         "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [],
         "parameters": [
           {
             "name": "token",
             "in": "query",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" },
+            "description": "The one-time magic link token"
           },
           {
             "name": "return_url",
             "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           },
           {
             "name": "return_token",
             "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
+            "schema": { "type": "boolean" }
           },
-          {
-            "name": "client_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
+          { "name": "client_id", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token verified, session created or JWT returned"
+          },
+          "400": {
+            "description": "Invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ],
-        "security": []
+        }
       }
     },
     "/oauth/login/otp/request": {
       "post": {
         "summary": "Request OTP",
-        "description": "Sends an OTP via email.",
+        "description": "Sends a one-time passcode to the user's email address.",
         "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["email"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
+                  "email": { "type": "string", "format": "email" },
                   "shouldCreate": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "If true, creates the user account if not found"
                   },
-                  "return_url": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "security": []
-      }
-    },
-    "/oauth/login/otp/verify": {
-      "post": {
-        "summary": "Verify OTP",
-        "description": "Verifies an OTP.",
-        "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "return_url": { "type": "string" }
                 }
               }
             }
           }
         },
+        "responses": {
+          "200": { "description": "OTP sent" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/login/otp/verify": {
+      "post": {
+        "summary": "Verify OTP",
+        "description": "Verifies an OTP sent via email and creates a session or returns a JWT.",
+        "tags": ["Authentication"],
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["email", "otp"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "otp": {
-                    "type": "string"
-                  },
-                  "return_url": {
-                    "type": "string"
-                  },
-                  "return_token": {
-                    "type": "boolean"
-                  },
-                  "client_id": {
-                    "type": "string"
-                  }
+                  "email": { "type": "string", "format": "email" },
+                  "otp": { "type": "string", "example": "123456" },
+                  "return_url": { "type": "string" },
+                  "return_token": { "type": "boolean" },
+                  "client_id": { "type": "string" }
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "security": []
+        "responses": {
+          "200": {
+            "description": "OTP verified, session created or JWT returned"
+          },
+          "400": {
+            "description": "Invalid or expired OTP",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/login/google": {
+      "get": {
+        "summary": "Initiate Google OAuth",
+        "description": "Redirects the user to Google's OAuth 2.0 authorization page.",
+        "tags": ["Authentication"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "return_url",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          { "name": "client_id", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "302": { "description": "Redirect to Google login" } }
+      }
+    },
+    "/oauth/login/google/callback": {
+      "get": {
+        "summary": "Google OAuth Callback",
+        "description": "Handles the callback from Google after user authorization. Creates a session or returns a JWT.",
+        "tags": ["Authentication"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Authorization code from Google"
+          },
+          { "name": "state", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "302": { "description": "Redirect to return_url or app dashboard" },
+          "400": {
+            "description": "OAuth error from Google",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
       }
     },
     "/oauth/session": {
       "get": {
         "summary": "Get Session Status",
-        "description": "Checks if user has an active OAuth session. Cookie based.",
+        "description": "Checks whether the current request has a valid OAuth session via cookie.",
         "tags": ["Authentication"],
+        "security": [],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
+          "200": { "description": "Active session details" },
           "401": {
-            "description": "Unauthorized",
+            "description": "No active session",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "security": []
+        }
       }
     },
     "/oauth/logout": {
       "post": {
         "summary": "Logout",
-        "description": "Destroys OAuth session and logs user out.",
+        "description": "Destroys the current session cookie and logs the user out.",
         "tags": ["Authentication"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "security": []
+        "security": [],
+        "responses": { "200": { "description": "Logged out successfully" } }
       }
     },
-    "/api/v1/organizations": {
-      "post": {
-        "summary": "Create Organization",
-        "description": "Creates a new organization.",
-        "tags": ["Organizations"],
+    "/oauth/authorize": {
+      "get": {
+        "summary": "Authorization Endpoint",
+        "description": "Initiates the OAuth 2.0 authorization code flow. Redirects the user to the consent/login screen. Supports PKCE (`code_challenge` + `code_challenge_method`).\n",
+        "tags": ["OAuth 2.0"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "response_type",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["code"] },
+            "description": "Must be `code`"
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "uri" }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": { "type": "string", "example": "openid profile email" }
+          },
+          { "name": "state", "in": "query", "schema": { "type": "string" } },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "PKCE code challenge (Base64URL-encoded SHA-256 hash of code_verifier)"
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["S256", "plain"] }
+          }
+        ],
         "responses": {
-          "200": {
-            "description": "Successful operation"
+          "302": {
+            "description": "Redirects to consent page or redirect_uri with authorization code"
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid request parameters",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit Authorization Decision",
+        "description": "Handles the user's consent decision (approve or deny) from the consent form.",
+        "tags": ["OAuth 2.0"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["decision", "request_id"],
+                "properties": {
+                  "decision": { "type": "string", "enum": ["allow", "deny"] },
+                  "request_id": {
+                    "type": "string",
+                    "description": "The original authorization request ID"
+                  }
                 }
               }
             }
           }
         },
+        "responses": {
+          "302": {
+            "description": "Redirects to redirect_uri with code (allow) or error (deny)"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/billing": {
+      "get": {
+        "summary": "Get Billing Info",
+        "description": "Returns the current billing information and subscription tier for the organization.",
+        "tags": ["Billing"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Billing information" },
+          "403": {
+            "description": "Requires billing:read permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Billing Info",
+        "description": "Updates billing email or payment method. Requires `billing:update` permission.",
+        "tags": ["Billing"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "slug", "billingEmail"],
                 "properties": {
-                  "name": {
-                    "type": "string",
-                    "maxLength": 100
-                  },
-                  "slug": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 63,
-                    "pattern": "^[a-z0-9-]+$"
-                  },
+                  "billingEmail": { "type": "string", "format": "email" },
+                  "paymentMethodId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Billing info updated" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/billing/upgrade": {
+      "post": {
+        "summary": "Upgrade Tier",
+        "description": "Upgrades the organization's subscription tier.",
+        "tags": ["Billing"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tier"],
+                "properties": {
                   "tier": {
                     "type": "string",
                     "enum": ["startup", "growth", "enterprise"]
-                  },
-                  "billingEmail": {
-                    "type": "string",
-                    "format": "email"
                   }
                 }
               }
             }
-          },
-          "required": true
+          }
+        },
+        "responses": {
+          "200": { "description": "Tier upgraded" },
+          "400": {
+            "description": "Already on requested tier or higher",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
         }
-      },
-      "get": {
-        "summary": "List Organizations",
-        "description": "Lists user's organizations.",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ]
       }
     },
-    "/api/v1/organizations/{orgId}": {
-      "get": {
-        "summary": "Get Organization",
-        "description": "Gets organization details.",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "patch": {
-        "summary": "Update Organization",
-        "description": "Updates organization details.",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "maxLength": 100
-                  },
-                  "settings": {
-                    "type": "object"
-                  },
-                  "billing": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Delete Organization",
-        "description": "Deletes organization (owner only).",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      }
-    },
-    "/api/v1/organizations/{orgId}/transfer-ownership": {
+    "/api/v1/organizations/{orgId}/billing/downgrade": {
       "post": {
-        "summary": "Transfer Ownership",
-        "description": "Transfers ownership to another member.",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+        "summary": "Downgrade Tier",
+        "description": "Downgrades the organization's subscription tier.",
+        "tags": ["Billing"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        },
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["newOwnerId"],
+                "required": ["tier"],
                 "properties": {
-                  "newOwnerId": {
-                    "type": "string"
+                  "tier": {
+                    "type": "string",
+                    "enum": ["startup", "growth", "enterprise"]
                   }
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "responses": {
+          "200": { "description": "Tier downgraded" },
+          "400": {
+            "description": "Feature loss warning / invalid downgrade",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
-    "/api/v1/organizations/{orgId}/settings": {
+    "/api/v1/oauth/clients/public/{clientId}": {
       "get": {
-        "summary": "Get Organization Settings",
-        "description": "Gets organization settings.",
-        "tags": ["Organizations"],
+        "summary": "Get Public Client Info",
+        "description": "Returns public-facing details about an OAuth client. Used for displaying consent screens. No authentication required.",
+        "tags": ["OAuth Clients"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation"
+            "description": "Public client information (name, logo, allowed scopes)"
           },
-          "400": {
-            "description": "Bad Request",
+          "404": {
+            "description": "Client not found",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients": {
+      "post": {
+        "summary": "Create OAuth Client",
+        "description": "Registers a new OAuth 2.0 client application for the organization.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "orgId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           }
-        ]
-      },
-      "patch": {
-        "summary": "Update Organization Settings",
-        "description": "Updates organization settings.",
-        "tags": ["Organizations"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "clientName",
+                  "clientType",
+                  "redirectUris",
+                  "allowedScopes",
+                  "grantTypes"
+                ],
                 "properties": {
-                  "allowedDomains": {
+                  "clientName": { "type": "string", "maxLength": 100 },
+                  "clientType": {
+                    "type": "string",
+                    "enum": ["confidential", "public"]
+                  },
+                  "redirectUris": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "uri" },
+                    "minItems": 1
+                  },
+                  "allowedScopes": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "minItems": 1
+                  },
+                  "grantTypes": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "authorization_code",
+                        "refresh_token",
+                        "client_credentials"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "requirePKCE": { "type": "boolean" },
+                  "branding": {
+                    "type": "object",
+                    "properties": {
+                      "logoUrl": { "type": "string", "format": "uri" },
+                      "primaryColor": {
+                        "type": "string",
+                        "example": "#FF5733"
+                      },
+                      "privacyPolicyUrl": { "type": "string", "format": "uri" },
+                      "termsOfServiceUrl": { "type": "string", "format": "uri" }
                     }
                   },
-                  "defaultTokenTTL": {
-                    "type": "integer",
-                    "minimum": 60,
-                    "maximum": 86400
-                  },
-                  "defaultRefreshTokenTTL": {
-                    "type": "integer",
-                    "minimum": 60,
-                    "maximum": 31536000
-                  },
-                  "webhookUrl": {
-                    "type": "string",
-                    "format": "uri"
-                  },
-                  "rotateWebhookSecret": {
-                    "type": "boolean"
+                  "tokenSettings": {
+                    "type": "object",
+                    "properties": {
+                      "accessTokenTTL": {
+                        "type": "integer",
+                        "minimum": 300,
+                        "maximum": 86400
+                      },
+                      "refreshTokenTTL": {
+                        "type": "integer",
+                        "minimum": 3600,
+                        "maximum": 7776000
+                      },
+                      "idTokenTTL": {
+                        "type": "integer",
+                        "minimum": 300,
+                        "maximum": 86400
+                      },
+                      "refreshTokenRotation": { "type": "boolean" }
+                    }
                   },
                   "rateLimits": {
                     "type": "object",
                     "properties": {
-                      "requestsPerMinute": {
-                        "type": "integer"
-                      },
-                      "tokensPerHour": {
-                        "type": "integer"
-                      }
+                      "requestsPerMinute": { "type": "integer", "minimum": 1 },
+                      "tokensPerHour": { "type": "integer", "minimum": 1 }
                     }
                   }
                 }
               }
             }
-          },
-          "required": true
+          }
         },
+        "responses": {
+          "201": {
+            "description": "OAuth client created (includes client_secret, shown only once)"
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List OAuth Clients",
+        "description": "Returns a paginated list of all OAuth clients registered for the organization.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "orgId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of OAuth clients" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients/{clientId}": {
+      "get": {
+        "summary": "Get OAuth Client",
+        "description": "Returns full configuration details for a specific OAuth client.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OAuth client details" },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update OAuth Client",
+        "description": "Updates OAuth client configuration such as redirect URIs, scopes, grant types, branding, and token settings.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientName": { "type": "string", "maxLength": 100 },
+                  "redirectUris": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "uri" }
+                  },
+                  "allowedScopes": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "grantTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "authorization_code",
+                        "refresh_token",
+                        "client_credentials"
+                      ]
+                    }
+                  },
+                  "requirePKCE": { "type": "boolean" },
+                  "branding": { "type": "object" },
+                  "tokenSettings": { "type": "object" },
+                  "rateLimits": { "type": "object" },
+                  "isActive": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Client updated" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete OAuth Client",
+        "description": "Permanently deletes an OAuth client. All active tokens issued under this client will be revoked.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Client deleted" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients/{clientId}/rotate-secret": {
+      "post": {
+        "summary": "Rotate Client Secret",
+        "description": "Generates a new client secret and invalidates the old one. The new secret is returned only once.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "New client secret (shown only once)" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients/{clientId}/usage": {
+      "get": {
+        "summary": "Get Client Usage Statistics",
+        "description": "Returns token issuance counts and usage statistics for a specific OAuth client.",
+        "tags": ["OAuth Clients"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Client usage statistics" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients/{clientId}/secrets": {
+      "post": {
+        "summary": "Create Client Secret",
+        "description": "Creates an additional secret for the OAuth client. Useful for secret rotation with zero downtime.",
+        "tags": ["Client Secrets"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Secret created (full value shown only once)"
+          },
+          "403": {
+            "description": "Requires client:update permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Client Secrets",
+        "description": "Returns metadata for all secrets associated with the OAuth client (secret values are not returned).",
+        "tags": ["Client Secrets"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of secret metadata" },
+          "403": {
+            "description": "Requires client:update permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/clients/{clientId}/secrets/{secretId}": {
+      "patch": {
+        "summary": "Update Client Secret",
+        "description": "Updates a secret's status (enable/disable) or expiration date.",
+        "tags": ["Client Secrets"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "secretId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "isEnabled": { "type": "boolean" },
+                  "expiresAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Secret updated" },
+          "403": {
+            "description": "Requires client:update permission",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Client Secret",
+        "description": "Permanently deletes a client secret. The secret must be disabled before deletion.",
+        "tags": ["Client Secrets"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "secretId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Secret deleted" },
+          "400": {
+            "description": "Secret must be disabled before deletion",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/introspect": {
+      "post": {
+        "summary": "Introspect Token",
+        "description": "Validates and returns metadata about an access token or refresh token. Used by resource servers to verify tokens. Requires client authentication.\n",
+        "tags": ["OAuth 2.0"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "client_id"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "token_type_hint": {
+                    "type": "string",
+                    "enum": ["access_token", "refresh_token"]
+                  },
+                  "client_id": { "type": "string" },
+                  "client_secret": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token introspection response (active or inactive)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "active": { "type": "boolean" },
+                    "sub": { "type": "string" },
+                    "scope": { "type": "string" },
+                    "client_id": { "type": "string" },
+                    "exp": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verify": {
+      "post": {
+        "summary": "Initiate KYC Verification",
+        "description": "Starts a KYC identity verification session using the specified provider (QoreID or Plaid). Supports BVN, NIN, passport, and various international ID types.\n",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["organizationId"],
+                "properties": {
+                  "organizationId": { "type": "string" },
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "provider": { "type": "string", "enum": ["qoreid", "plaid"] },
+                  "phoneNumber": { "type": "string" },
+                  "dateOfBirth": { "type": "string" },
+                  "documentType": {
+                    "type": "string",
+                    "enum": [
+                      "bvn",
+                      "nin",
+                      "passport",
+                      "drivers_license",
+                      "national_id"
+                    ]
+                  },
+                  "documentNumber": { "type": "string" },
+                  "idNumber": { "type": "string" },
+                  "idNumberType": {
+                    "type": "string",
+                    "description": "International ID type (e.g. ng_nin, us_ssn, za_smart_id)"
+                  },
+                  "address": { "type": "object" },
+                  "templateId": { "type": "string" },
+                  "gaveConsent": { "type": "boolean" },
+                  "gender": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Verification session created" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verify/{sessionId}": {
+      "get": {
+        "summary": "Get Verification Status",
+        "description": "Returns the current status of a KYC verification session.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": { "type": "boolean" },
+            "description": "If true, fetches the latest status from the provider"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Verification session status" },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verify/{sessionId}/retry": {
+      "post": {
+        "summary": "Retry Verification",
+        "description": "Retries a failed or expired KYC verification session using the specified strategy.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["strategy"],
+                "properties": {
+                  "strategy": {
+                    "type": "string",
+                    "enum": ["reset", "resume", "incomplete", "infer", "custom"]
+                  },
+                  "provider": { "type": "string", "enum": ["qoreid", "plaid"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Retry initiated" },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verifications": {
+      "get": {
+        "summary": "List Verifications",
+        "description": "Returns a paginated list of KYC verification sessions, with optional filtering by provider, status, and date range.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["qoreid", "plaid"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "active", "verified", "failed", "expired"]
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "organizationId",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of verification sessions" }
+        }
+      }
+    },
+    "/api/v1/kyc/webhooks/plaid": {
+      "post": {
+        "summary": "Plaid Webhook Handler",
+        "description": "Receives and processes webhook events from Plaid Identity Verification. Signature validated using Plaid's webhook signature header.\n",
+        "tags": ["KYC Verification"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Plaid webhook event payload"
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Webhook received" } }
+      }
+    },
+    "/api/v1/kyc/webhooks/qoreid": {
+      "post": {
+        "summary": "QoreID Webhook Handler",
+        "description": "Receives and processes webhook events from QoreID Identity Verification. Validates authenticity using QoreID's signature header.\n",
+        "tags": ["KYC Verification"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "QoreID webhook event payload"
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Webhook received" } }
+      }
+    },
+    "/api/v1/kyc/organizations/{orgId}/config": {
+      "get": {
+        "summary": "Get Organization KYC Config",
+        "description": "Returns the KYC provider configuration for an organization, including enabled providers and webhook settings.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "KYC configuration" },
+          "403": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Organization KYC Config",
+        "description": "Updates the KYC provider configuration, including enabling/disabling providers, priority order, and webhook settings.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "providers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["qoreid", "plaid"]
+                        },
+                        "enabled": { "type": "boolean" },
+                        "priority": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  },
+                  "defaultProvider": {
+                    "type": "string",
+                    "enum": ["qoreid", "plaid"]
+                  },
+                  "webhookUrl": { "type": "string", "format": "uri" },
+                  "callbackUrl": { "type": "string", "format": "uri" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "KYC configuration updated" } }
+      }
+    },
+    "/api/v1/kyc/organizations/{orgId}/verifications": {
+      "get": {
+        "summary": "List Organization KYC Verifications",
+        "description": "Returns all KYC verification sessions for users under an organization, with filtering and pagination.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["qoreid", "plaid"] }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "active", "verified", "failed", "expired"]
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated KYC verifications for the organization"
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/organizations/{orgId}/analytics": {
+      "get": {
+        "summary": "Get Organization KYC Analytics",
+        "description": "Returns KYC verification success rates, provider breakdown, and trend analytics for the organization.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "KYC analytics for the organization" }
+        }
       }
     },
     "/api/v1/organizations/{orgId}/members/invite": {
       "post": {
         "summary": "Invite Member",
-        "description": "Invites a new member to an organization.",
+        "description": "Sends an email invitation to join the organization. Requires `member:invite` permission.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        },
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["email", "role"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
+                  "email": { "type": "string", "format": "email" },
                   "role": {
                     "type": "string",
                     "enum": ["owner", "admin", "developer", "viewer"]
@@ -1003,59 +2148,41 @@
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "responses": {
+          "200": { "description": "Invitation sent" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/organizations/{orgId}/members": {
       "get": {
         "summary": "List Members",
-        "description": "Lists organization members.",
+        "description": "Returns a paginated list of organization members, optionally filtered by role.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "orgId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           },
           {
             "name": "role",
@@ -1068,51 +2195,49 @@
           {
             "name": "page",
             "in": "query",
-            "schema": {
-              "type": "integer"
-            }
+            "schema": { "type": "integer", "minimum": 1 }
           },
           {
             "name": "limit",
             "in": "query",
-            "schema": {
-              "type": "integer"
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of members" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/organizations/{orgId}/members/{memberId}": {
       "patch": {
         "summary": "Update Member Role",
-        "description": "Updates member role in an organization.",
+        "description": "Changes a member's role within the organization. Requires `member:update` permission.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        },
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1126,219 +2251,184 @@
                 }
               }
             }
-          },
-          "required": true
+          }
         },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "memberId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+        "responses": {
+          "200": { "description": "Member role updated" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       },
       "delete": {
         "summary": "Remove Member",
-        "description": "Removes a member from the organization.",
+        "description": "Removes a member from the organization. Requires `member:remove` permission.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "orgId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           },
           {
             "name": "memberId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Member removed" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/invitations/{token}/accept": {
       "post": {
         "summary": "Accept Invitation",
-        "description": "Accepts an invitation to join an organization.",
+        "description": "Accepts a pending organization invitation using the token from the invitation email.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "token",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation accepted, user added to organization"
+          },
+          "400": {
+            "description": "Invalid or expired invitation token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/invitations/{token}/decline": {
       "post": {
         "summary": "Decline Invitation",
-        "description": "Declines an invitation to join an organization.",
+        "description": "Declines a pending organization invitation.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "token",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Invitation declined" },
+          "400": {
+            "description": "Invalid or expired invitation token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/invitations/{token}": {
       "get": {
         "summary": "Get Invitation Details",
-        "description": "Gets invitation details.",
+        "description": "Returns details about an invitation (organization name, inviter, role). No authentication required.",
         "tags": ["Members"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [],
         "parameters": [
           {
             "name": "token",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           }
-        ]
-      }
-    },
-    "/api/v1/organizations/{orgId}/clients": {
-      "post": {
-        "summary": "Create OAuth Client",
-        "description": "Creates a new OAuth client.",
-        "tags": ["OAuth Clients"],
+        ],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
+          "200": { "description": "Invitation details" },
+          "404": {
+            "description": "Invitation not found or expired",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations": {
+      "post": {
+        "summary": "Create Organization",
+        "description": "Creates a new organization. The authenticated user becomes the owner.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug", "billingEmail"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "example": "Acme Corp"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 63,
+                    "pattern": "^[a-z0-9-]+$",
+                    "example": "acme-corp"
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": ["startup", "growth", "enterprise"],
+                    "default": "startup"
+                  },
+                  "billingEmail": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "billing@acme.com"
+                  }
                 }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Organization created" },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           },
@@ -1346,686 +2436,577 @@
             "description": "Unauthorized",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Organizations",
+        "description": "Lists all organizations the authenticated user is a member of.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of organizations" },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}": {
+      "get": {
+        "summary": "Get Organization",
+        "description": "Returns full details for a specific organization.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Organization details" },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Organization not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Organization",
+        "description": "Updates organization name, settings, or billing details. Requires `org:update` permission.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 100 },
+                  "settings": { "type": "object" },
+                  "billing": { "type": "object" }
                 }
               }
             }
           }
         },
+        "responses": {
+          "200": { "description": "Organization updated" },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Organization",
+        "description": "Permanently deletes an organization. Requires owner role.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Organization deleted" },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only owner can delete the organization",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/transfer-ownership": {
+      "post": {
+        "summary": "Transfer Ownership",
+        "description": "Transfers organization ownership to another member. Requires owner role.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "clientName",
-                  "clientType",
-                  "redirectUris",
-                  "allowedScopes",
-                  "grantTypes"
-                ],
+                "required": ["newOwnerId"],
                 "properties": {
-                  "clientName": {
+                  "newOwnerId": {
                     "type": "string",
-                    "maxLength": 100
-                  },
-                  "clientType": {
+                    "description": "User ID of the new owner (must be an existing member)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Ownership transferred" },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the current owner can transfer ownership",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/suspend": {
+      "post": {
+        "summary": "Suspend Organization",
+        "description": "Suspends an organization, disabling access for all members. Requires `org:update` permission or platform admin.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": {
                     "type": "string",
-                    "enum": ["confidential", "public"]
+                    "description": "Reason for suspension"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Organization suspended" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/activate": {
+      "post": {
+        "summary": "Activate Organization",
+        "description": "Reactivates a previously suspended organization. Requires `org:update` permission or platform admin.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Organization activated" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/export": {
+      "get": {
+        "summary": "Export Organization Data",
+        "description": "Exports all organization data for GDPR/data portability. Requires `org:read` permission.",
+        "tags": ["Organizations"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Organization data export" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "summary": "Revoke Token",
+        "description": "Revokes an access token or refresh token. Revoking a refresh token will also invalidate all associated access tokens.\n",
+        "tags": ["OAuth 2.0"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "client_id"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The access or refresh token to revoke"
                   },
-                  "redirectUris": {
+                  "token_type_hint": {
+                    "type": "string",
+                    "enum": ["access_token", "refresh_token"]
+                  },
+                  "client_id": { "type": "string" },
+                  "client_secret": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Token revoked (or was already invalid)" },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/settings": {
+      "get": {
+        "summary": "Get Organization Settings",
+        "description": "Returns security, token TTL, rate limiting, and webhook settings for the organization.",
+        "tags": ["Settings"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Organization settings" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update Organization Settings",
+        "description": "Updates security, token TTL, rate limiting, and webhook settings. Requires `org:update` permission.",
+        "tags": ["Settings"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowedDomains": {
                     "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uri"
-                    }
+                    "items": { "type": "string" },
+                    "description": "Allowed email domains for user sign-up"
                   },
-                  "allowedScopes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                  "defaultTokenTTL": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 86400,
+                    "description": "Access token TTL in seconds"
                   },
-                  "grantTypes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "authorization_code",
-                        "refresh_token",
-                        "client_credentials"
-                      ]
-                    }
+                  "defaultRefreshTokenTTL": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 31536000,
+                    "description": "Refresh token TTL in seconds"
                   },
-                  "requirePKCE": {
-                    "type": "boolean"
+                  "webhookUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URL to receive webhook events"
                   },
-                  "branding": {
+                  "rotateWebhookSecret": {
+                    "type": "boolean",
+                    "description": "If true, rotates the webhook signing secret"
+                  },
+                  "rateLimits": {
                     "type": "object",
                     "properties": {
-                      "logoUrl": {
-                        "type": "string",
-                        "format": "uri"
+                      "requestsPerMinute": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
                       },
-                      "primaryColor": {
-                        "type": "string"
-                      },
-                      "privacyPolicyUrl": {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      "termsOfServiceUrl": {
-                        "type": "string",
-                        "format": "uri"
+                      "tokensPerHour": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
                       }
                     }
                   }
                 }
               }
             }
-          },
-          "required": true
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
           }
-        ]
-      },
-      "get": {
-        "summary": "List OAuth Clients",
-        "description": "Lists an organization's OAuth clients.",
-        "tags": ["OAuth Clients"],
+        },
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
+          "200": { "description": "Settings updated" },
           "400": {
-            "description": "Bad Request",
+            "description": "Validation error",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
+          "403": {
+            "description": "Insufficient permissions",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ]
+        }
       }
     },
-    "/api/v1/organizations/{orgId}/clients/{clientId}": {
-      "get": {
-        "summary": "Get OAuth Client",
-        "description": "Gets OAuth client details.",
-        "tags": ["OAuth Clients"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "patch": {
-        "summary": "Update OAuth Client",
-        "description": "Updates an OAuth client configuration.",
-        "tags": ["OAuth Clients"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+    "/oauth/token": {
+      "post": {
+        "summary": "Token Endpoint",
+        "description": "Issues access tokens, ID tokens, and refresh tokens. Supports grant types: `authorization_code`, `refresh_token`, and `client_credentials`. Authenticate using HTTP Basic authentication with `client_id:client_secret` or include credentials in the request body.\n",
+        "tags": ["OAuth 2.0"],
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
+            "application/x-www-form-urlencoded": {
               "schema": {
                 "type": "object",
+                "required": ["grant_type", "client_id"],
                 "properties": {
-                  "clientName": {
-                    "type": "string"
+                  "grant_type": {
+                    "type": "string",
+                    "enum": [
+                      "authorization_code",
+                      "refresh_token",
+                      "client_credentials"
+                    ]
                   },
-                  "redirectUris": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uri"
-                    }
+                  "client_id": { "type": "string" },
+                  "client_secret": { "type": "string" },
+                  "code": {
+                    "type": "string",
+                    "description": "Required for `authorization_code` grant"
                   },
-                  "allowedScopes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                  "redirect_uri": {
+                    "type": "string",
+                    "description": "Required for `authorization_code` grant"
                   },
-                  "grantTypes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                  "code_verifier": {
+                    "type": "string",
+                    "description": "PKCE code verifier (required if code_challenge was used)"
                   },
-                  "requirePKCE": {
-                    "type": "boolean"
+                  "refresh_token": {
+                    "type": "string",
+                    "description": "Required for `refresh_token` grant"
                   },
-                  "isActive": {
-                    "type": "boolean"
+                  "scope": {
+                    "type": "string",
+                    "description": "Requested scope (for `client_credentials`)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token issued successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": { "type": "string" },
+                    "token_type": { "type": "string", "example": "Bearer" },
+                    "expires_in": { "type": "integer" },
+                    "refresh_token": { "type": "string" },
+                    "id_token": { "type": "string" },
+                    "scope": { "type": "string" }
                   }
                 }
               }
             }
           },
-          "required": true
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Delete OAuth Client",
-        "description": "Deletes an OAuth client.",
-        "tags": ["OAuth Clients"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid request",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Client authentication failed",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
-    "/api/v1/organizations/{orgId}/clients/{clientId}/rotate-secret": {
-      "post": {
-        "summary": "Rotate Client Secret",
-        "description": "Rotates an OAuth client secret.",
-        "tags": ["OAuth Clients"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      }
-    },
-    "/api/v1/oauth/clients/public/{clientId}": {
-      "get": {
-        "summary": "Get Public Client Info",
-        "description": "Gets public client information (no auth required - for consent screen).",
-        "tags": ["OAuth Clients"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": []
-      }
-    },
-    "/api/v1/organizations/{orgId}/api-keys": {
-      "post": {
-        "summary": "Create API Key",
-        "description": "Creates a new API key for the organization.",
-        "tags": ["API Keys"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["name", "scopes"],
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "maxLength": 100
-                  },
-                  "scopes": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "expiresAt": {
-                    "type": "string",
-                    "format": "date-time"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "get": {
-        "summary": "List API Keys",
-        "description": "Lists organization's API keys.",
-        "tags": ["API Keys"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "isRevoked",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ]
-      }
-    },
-    "/api/v1/organizations/{orgId}/api-keys/{keyId}": {
-      "get": {
-        "summary": "Get API Key",
-        "description": "Gets details for a specific API key.",
-        "tags": ["API Keys"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "keyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      },
-      "delete": {
-        "summary": "Revoke API Key",
-        "description": "Revokes a specific API key.",
-        "tags": ["API Keys"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "keyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
-      }
-    },
-    "/api/v1/users/me": {
+    "/api/v1/me": {
       "get": {
         "summary": "Get Current User",
-        "description": "Get current authenticated user's profile.",
+        "description": "Returns the authenticated user's profile.",
         "tags": ["Users"],
+        "x-internal": true,
+        "security": [],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
+          "200": { "description": "User profile" },
           "401": {
-            "description": "Unauthorized",
+            "description": "No active session",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
@@ -2033,124 +3014,83 @@
       },
       "patch": {
         "summary": "Update Current User",
-        "description": "Update current authenticated user's profile.",
+        "description": "Updates the authenticated user's profile fields.",
         "tags": ["Users"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "x-internal": true,
+        "security": [],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "firstName": {
-                    "type": "string"
-                  },
-                  "lastName": {
-                    "type": "string"
-                  },
-                  "phone": {
-                    "type": "string"
-                  }
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "country": { "type": "string" },
+                  "dateOfBirth": { "type": "string" },
+                  "address": { "type": "object" }
                 }
               }
             }
-          },
-          "required": true
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated" },
+          "401": {
+            "description": "No active session",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/users/by-paytag/{payTag}": {
       "get": {
         "summary": "Search User By PayTag",
-        "description": "Search for a user by their PayTag.",
+        "description": "Looks up a user by their unique PayTag identifier.",
         "tags": ["Users"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "payTag",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
+            "schema": { "type": "string" },
+            "description": "The user's PayTag (e.g. @johndoe)"
+          }
+        ],
+        "responses": {
+          "200": { "description": "User profile matching the PayTag" },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
     "/api/v1/users/me/kyc": {
       "get": {
-        "summary": "Get Authenticated User KYC Records",
-        "description": "Get authenticated user's KYC records.",
-        "tags": ["Users"],
+        "summary": "Get My KYC Records",
+        "description": "Returns KYC verification records for the current authenticated user.",
+        "tags": ["KYC Verification"],
+        "x-internal": true,
+        "security": [],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
+          "200": { "description": "KYC records" },
           "401": {
-            "description": "Unauthorized",
+            "description": "No active session",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
@@ -2160,336 +3100,216 @@
     "/api/v1/users/{userId}/kyc": {
       "get": {
         "summary": "Get User KYC Records",
-        "description": "Get user KYC records.",
-        "tags": ["Users"],
-        "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
+        "description": "Returns KYC records for a specific user. Users can only access their own records.",
+        "tags": ["KYC Verification"],
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
         "parameters": [
           {
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "schema": { "type": "string" }
           }
-        ]
-      }
-    },
-    "/api/v1/kyc/verify": {
-      "post": {
-        "summary": "Initiate KYC Verification",
-        "description": "Initiates KYC verification.",
-        "tags": ["KYC Verification"],
+        ],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
+          "200": { "description": "KYC records for the user" },
+          "403": {
+            "description": "Cannot access another user's KYC records",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["organizationId"],
-                "properties": {
-                  "organizationId": {
-                    "type": "string"
-                  },
-                  "firstName": {
-                    "type": "string"
-                  },
-                  "lastName": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "provider": {
-                    "type": "string",
-                    "enum": ["qoreid", "plaid"]
-                  },
-                  "documentType": {
-                    "type": "string",
-                    "enum": [
-                      "bvn",
-                      "nin",
-                      "passport",
-                      "drivers_license",
-                      "national_id"
-                    ]
-                  },
-                  "idNumber": {
-                    "type": "string"
-                  },
-                  "idNumberType": {
-                    "type": "string",
-                    "enum": [
-                      "ar_dni",
-                      "au_drivers_license",
-                      "au_passport",
-                      "br_cpf",
-                      "ca_sin",
-                      "cl_run",
-                      "cn_resident_card",
-                      "co_nit",
-                      "dk_cpr",
-                      "eg_national_id",
-                      "es_dni",
-                      "es_nie",
-                      "hk_hkid",
-                      "in_pan",
-                      "it_cf",
-                      "jo_civil_id",
-                      "jp_my_number",
-                      "ke_huduma_namba",
-                      "kw_civil_id",
-                      "mx_curp",
-                      "mx_rfc",
-                      "my_nric",
-                      "ng_nin",
-                      "nz_drivers_license",
-                      "om_civil_id",
-                      "ph_psn",
-                      "pl_pesel",
-                      "ro_cnp",
-                      "sa_national_id",
-                      "se_pin",
-                      "sg_nric",
-                      "tr_tc_kimlik",
-                      "us_ssn",
-                      "us_ssn_last_4",
-                      "za_smart_id"
-                    ]
-                  },
-                  "templateId": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
         }
       }
     },
-    "/api/v1/kyc/verify/{sessionId}": {
+    "/api/v1/users/me/consents": {
       "get": {
-        "summary": "Get KYC Verification Status",
-        "description": "Gets KYC verification status.",
-        "tags": ["KYC Verification"],
+        "summary": "Get My OAuth Consents",
+        "description": "Returns all OAuth consent grants for the current authenticated user.",
+        "tags": ["Users"],
+        "x-internal": true,
+        "security": [],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
+          "200": { "description": "List of OAuth consents" },
           "401": {
-            "description": "Unauthorized",
+            "description": "No active session",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "refresh",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ]
+        }
       }
     },
-    "/api/v1/kyc/verify/{sessionId}/retry": {
-      "post": {
-        "summary": "Retry KYC Verification",
-        "description": "Retries KYC verification.",
-        "tags": ["KYC Verification"],
+    "/api/v1/users/me/consents/{consentId}": {
+      "get": {
+        "summary": "Get Consent",
+        "description": "Returns a specific OAuth consent grant by ID.",
+        "tags": ["Users"],
+        "x-internal": true,
+        "security": [],
+        "parameters": [
+          {
+            "name": "consentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
         "responses": {
-          "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
+          "200": { "description": "Consent details" },
+          "404": {
+            "description": "Consent not found",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["strategy"],
-                "properties": {
-                  "strategy": {
-                    "type": "string",
-                    "enum": ["reset", "resume", "incomplete", "infer", "custom"]
-                  },
-                  "provider": {
-                    "type": "string",
-                    "enum": ["qoreid", "plaid"]
+        }
+      },
+      "delete": {
+        "summary": "Revoke Consent",
+        "description": "Revokes an existing OAuth consent grant. Any tokens issued under this consent will also be revoked.",
+        "tags": ["Users"],
+        "x-internal": true,
+        "security": [],
+        "parameters": [
+          {
+            "name": "consentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Consent revoked" },
+          "404": {
+            "description": "Consent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/userinfo": {
+      "get": {
+        "summary": "UserInfo Endpoint",
+        "description": "Returns claims about the authenticated user based on the provided access token. The claims returned depend on the scopes granted during authorization.\n",
+        "tags": ["OpenID Connect"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User claims",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sub": {
+                      "type": "string",
+                      "description": "Subject (user ID)"
+                    },
+                    "email": { "type": "string" },
+                    "email_verified": { "type": "boolean" },
+                    "name": { "type": "string" },
+                    "given_name": { "type": "string" },
+                    "family_name": { "type": "string" }
                   }
                 }
               }
             }
           },
-          "required": true
-        },
-        "parameters": [
-          {
-            "name": "sessionId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
+          "401": {
+            "description": "Missing or invalid access token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
             }
           }
-        ]
+        }
       }
     },
-    "/api/v1/kyc/verifications": {
+    "/.well-known/openid-configuration": {
       "get": {
-        "summary": "List Verifications",
-        "description": "List paginated KYC verifications.",
-        "tags": ["KYC Verification"],
+        "summary": "OpenID Connect Discovery Document",
+        "description": "Returns the OpenID Connect discovery document, which describes all supported endpoints, grant types, scopes, and signing algorithms.\n",
+        "tags": ["OpenID Connect"],
+        "security": [],
         "responses": {
           "200": {
-            "description": "Successful operation"
-          },
-          "400": {
-            "description": "Bad Request",
+            "description": "OIDC discovery document",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "issuer": { "type": "string" },
+                    "authorization_endpoint": { "type": "string" },
+                    "token_endpoint": { "type": "string" },
+                    "userinfo_endpoint": { "type": "string" },
+                    "jwks_uri": { "type": "string" },
+                    "scopes_supported": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "response_types_supported": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "grant_types_supported": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
                 }
               }
             }
           }
-        },
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": ["qoreid", "plaid"]
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string"
+        }
+      }
+    },
+    "/.well-known/jwks.json": {
+      "get": {
+        "summary": "JSON Web Key Set (JWKS)",
+        "description": "Returns the public keys used to sign JWT access tokens and ID tokens. Resource servers use this endpoint to verify token signatures.\n",
+        "tags": ["OpenID Connect"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "JWKS containing public signing keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kty": { "type": "string" },
+                          "use": { "type": "string" },
+                          "kid": { "type": "string" },
+                          "alg": { "type": "string" },
+                          "n": { "type": "string" },
+                          "e": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
-        ]
+        }
       }
     }
   }
