@@ -1,0 +1,87 @@
+---
+title: "Analytics"
+description: "Monitor API usage, active users, error rates, and latency for your organization."
+---
+
+The PayID Analytics API gives your organization visibility into platform usage across four dimensions: **usage volume**, **monthly active users (MAU)**, **error rates**, and **API latency**. All analytics endpoints support date range filtering.
+
+---
+
+## Query Parameters
+
+All analytics endpoints accept the following common query parameters:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `startDate` | ISO 8601 datetime | Start of the reporting period |
+| `endDate` | ISO 8601 datetime | End of the reporting period |
+
+---
+
+## API Usage
+
+Track the total volume of API requests made by your organization's clients and API keys over a given period.
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/analytics/usage?startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+The response includes request counts broken down by day or hour depending on the selected range.
+
+---
+
+## Monthly Active Users (MAU)
+
+Track the number of unique users that authenticated via your OAuth clients in a given month.
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/analytics/mau?startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## Error Rates
+
+Monitor the rate of failed API requests to identify integration issues or attacks.
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/analytics/errors?startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+The response breaks down error counts by HTTP status code (e.g., `400`, `401`, `403`, `429`, `500`).
+
+---
+
+## API Latency
+
+Measure the p50, p95, and p99 response times for your API calls over time.
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/analytics/latency?startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## KYC Analytics
+
+In addition to general API analytics, you can get KYC-specific metrics for your organization — including verification success rates and provider breakdown:
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/kyc/organizations/<orgId>/analytics?startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## OAuth Client Usage
+
+Track token issuance counts per OAuth client:
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients/<clientId>/usage?startDate=2025-01-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```

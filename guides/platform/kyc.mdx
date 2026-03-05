@@ -1,0 +1,128 @@
+---
+title: "KYC Verification"
+description: "Verify user identities with BVN, NIN, passports, and international IDs via QoreID and Plaid."
+---
+
+The PayID Platform integrates with **QoreID** and **Plaid** to provide identity verification (KYC) for your users. You can initiate verifications, track their status, and receive real-time updates via webhooks.
+
+---
+
+## Supported Document Types
+
+| Type | Description |
+|---|---|
+| `bvn` | Nigerian Bank Verification Number |
+| `nin` | Nigerian National ID Number |
+| `passport` | International passport |
+| `drivers_license` | Driver's license |
+| `national_id` | National ID card |
+
+For international IDs, use `idNumberType` with country-specific codes like `ng_nin`, `us_ssn`, `za_smart_id`, `in_pan`, and [many more](/api-reference/introduction).
+
+---
+
+## Initiating a Verification
+
+```bash
+curl -X POST https://api.payid.aevr.space/api/v1/kyc/verify \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organizationId": "<orgId>",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "provider": "qoreid",
+    "documentType": "bvn",
+    "documentNumber": "12345678901",
+    "gaveConsent": true
+  }'
+```
+
+The response contains a `sessionId` you use to track this verification.
+
+---
+
+## Checking Status
+
+```bash
+curl https://api.payid.aevr.space/api/v1/kyc/verify/<sessionId> \
+  -H "Authorization: Bearer <access_token>"
+```
+
+Add `?refresh=true` to fetch the latest status directly from the provider instead of from cache.
+
+### Verification Statuses
+
+| Status | Meaning |
+|---|---|
+| `pending` | Verification initiated, awaiting provider |
+| `active` | Verification is in progress |
+| `verified` | Identity successfully verified |
+| `failed` | Verification failed (mismatch or error) |
+| `expired` | Session expired before completion |
+
+---
+
+## Retrying a Failed Verification
+
+```bash
+curl -X POST https://api.payid.aevr.space/api/v1/kyc/verify/<sessionId>/retry \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": "reset",
+    "provider": "plaid"
+  }'
+```
+
+Retry strategies:
+
+| Strategy | Behavior |
+|---|---|
+| `reset` | Start fresh with a new session |
+| `resume` | Continue from where the last session left off |
+| `incomplete` | Retry only the incomplete steps |
+| `infer` | Automatically choose the best strategy |
+
+---
+
+## Organization KYC Configuration
+
+Configure which providers are active and their priority for your org:
+
+```bash
+curl -X PATCH https://api.payid.aevr.space/api/v1/kyc/organizations/<orgId>/config \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "providers": [
+      { "type": "qoreid", "enabled": true, "priority": 1 },
+      { "type": "plaid", "enabled": true, "priority": 2 }
+    ],
+    "defaultProvider": "qoreid",
+    "webhookUrl": "https://yourapp.com/webhooks/kyc"
+  }'
+```
+
+---
+
+## Webhooks
+
+PayID sends real-time updates to your webhook URL whenever a verification status changes. Both Plaid and QoreID have dedicated callback endpoints:
+
+```
+POST /api/v1/kyc/webhooks/plaid
+POST /api/v1/kyc/webhooks/qoreid
+```
+
+Your server should respond with a `200 OK`. Requests are signed — validate the signature header before processing.
+
+---
+
+## Listing Organization Verifications
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/kyc/organizations/<orgId>/verifications?status=verified&limit=20" \
+  -H "Authorization: Bearer <access_token>"
+```

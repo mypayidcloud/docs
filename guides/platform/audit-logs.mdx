@@ -1,0 +1,90 @@
+---
+title: "Audit Logs"
+description: "Track all organization activity with immutable, tamper-evident audit logs."
+---
+
+Every significant action in your organization is recorded in the **Audit Log** — a chronological, immutable trail of who did what and when. Use it for security investigations, compliance reporting, and debugging unexpected changes.
+
+---
+
+## Listing Audit Logs
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?limit=25&page=1" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+### Filtering Logs
+
+Refine results with query parameters:
+
+```bash
+curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?action=member.invite&actorId=<userId>&startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+| Parameter | Description |
+|---|---|
+| `action` | Filter by event type (e.g. `member.invite`, `apikey.create`) |
+| `actorId` | Filter by the user who performed the action |
+| `startDate` | ISO 8601 start of the range |
+| `endDate` | ISO 8601 end of the range |
+| `page` | Page number (default: 1) |
+| `limit` | Results per page (default: 20, max: 100) |
+
+---
+
+## Getting a Single Log Entry
+
+```bash
+curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit/<logId> \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## Log Structure
+
+Each audit log entry contains:
+
+```json
+{
+  "id": "alog_abc123",
+  "action": "apikey.create",
+  "actor": {
+    "id": "usr_xyz",
+    "email": "admin@acme.com"
+  },
+  "target": {
+    "type": "apiKey",
+    "id": "ak_def456",
+    "name": "Production Backend"
+  },
+  "metadata": {
+    "permissions": ["org:read", "member:read"],
+    "ipAddress": "203.0.113.42"
+  },
+  "createdAt": "2025-03-05T04:00:00Z"
+}
+```
+
+---
+
+## Common Action Types
+
+| Action | Description |
+|---|---|
+| `member.invite` | A member was invited to the org |
+| `member.remove` | A member was removed |
+| `member.role_update` | A member's role was changed |
+| `apikey.create` | An API key was created |
+| `apikey.revoke` | An API key was revoked |
+| `client.create` | An OAuth client was registered |
+| `client.delete` | An OAuth client was deleted |
+| `settings.update` | Organization settings were changed |
+| `org.suspend` | The organization was suspended |
+| `org.transfer_ownership` | Ownership was transferred |
+
+<Note>
+  Audit logs are **immutable** — they cannot be modified or deleted. They are retained for a minimum of 90 days.
+</Note>

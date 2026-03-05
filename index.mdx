@@ -1,69 +1,43 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation!"
+title: "PayID Platform"
+description: "Identity infrastructure for modern financial applications. Authentication, OAuth 2.0, KYC verification, and organization management — all in one platform."
 ---
 
-## Setting up
+## What is PayID?
 
-Get your documentation site up and running in minutes.
+PayID is a backend-as-a-service platform for building **identity-first financial applications**. It handles the hard parts of user identity so you can focus on your product.
 
-<Card title="Start here" icon="rocket" href="/quickstart" horizontal>
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card title="Edit locally" icon="pen-to-square" href="/development">
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={3}>
+  <Card title="Authentication" icon="lock" href="/guides/authentication/overview">
+    Secure login with email/password, magic links, OTP, and Google OAuth. Supports both session and Bearer token auth.
   </Card>
-  <Card title="Customize your site" icon="palette" href="/essentials/settings">
-    Customize the design and colors of your site to match your brand.
+  <Card title="OAuth 2.0 & OIDC" icon="shield-check" href="/guides/authentication/oauth-oidc">
+    A fully compliant OAuth 2.0 authorization server with PKCE, refresh tokens, token introspection, and an OpenID Connect discovery endpoint.
   </Card>
-  <Card title="Set up navigation" icon="map" href="/essentials/navigation">
-    Organize your docs to help users find what they need and succeed with your
-    product.
+  <Card title="KYC Verification" icon="id-card" href="/guides/platform/kyc">
+    Identity verification via QoreID and Plaid. Supports BVN, NIN, passports, and international IDs with webhook callbacks.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Platform Features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Organizations" icon="building" href="/guides/platform/organizations">
+    Multi-tenant organization management with role-based access control, member invitations, and ownership transfers.
+  </Card>
+  <Card title="API Keys" icon="key" href="/guides/platform/api-keys">
+    Programmatic API access via scoped API keys. Create, rotate, and revoke keys with fine-grained permissions.
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/guides/platform/analytics">
+    Monitor API usage, track monthly active users, and get real-time error and latency breakdowns.
+  </Card>
+  <Card title="Audit Logs" icon="scroll" href="/guides/platform/audit-logs">
+    Immutable audit trails of all organization activity: member changes, settings updates, and authentication events.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card title="Write with MDX" icon="pen-fancy" href="/essentials/markdown">
-    Use MDX to style your docs pages.
-  </Card>
-  <Card title="Code samples" icon="code" href="/essentials/code">
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card title="Images" icon="image" href="/essentials/images">
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Get started
 
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+<Card title="Quickstart" icon="rocket" href="/quickstart" horizontal>
+  Create your first organization and make your first authenticated API request in minutes.
 </Card>

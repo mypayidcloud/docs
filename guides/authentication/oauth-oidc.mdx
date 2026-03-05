@@ -1,0 +1,139 @@
+---
+title: "OAuth 2.0 & OpenID Connect"
+description: "Build a standards-compliant OAuth 2.0 authorization flow using the PayID Platform."
+---
+
+The PayID Platform implements a full **OAuth 2.0 authorization server** with **OpenID Connect (OIDC)** support. You can register OAuth clients for your application and issue access tokens, ID tokens, and refresh tokens to your users.
+
+---
+
+## Supported Grant Types
+
+| Grant Type | Use Case |
+|---|---|
+| `authorization_code` + PKCE | Web / mobile apps acting on behalf of a user |
+| `client_credentials` | Server-to-server (machine-to-machine) access |
+| `refresh_token` | Silently renewing expired access tokens |
+
+---
+
+## Registering an OAuth Client
+
+Before you can initiate an authorization flow, register an OAuth client for your application:
+
+```bash
+curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientName": "My Web App",
+    "clientType": "confidential",
+    "redirectUris": ["https://yourapp.com/callback"],
+    "allowedScopes": ["openid", "profile", "email"],
+    "grantTypes": ["authorization_code", "refresh_token"],
+    "requirePKCE": true
+  }'
+```
+
+The response includes your `client_id` and `client_secret`. **Store the secret securely** — it is only shown once.
+
+---
+
+## Authorization Code Flow (with PKCE)
+
+### 1. Generate a Code Verifier & Challenge
+
+```js
+const verifier = crypto.randomBytes(32).toString('base64url');
+const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+```
+
+### 2. Redirect the User to the Authorization Endpoint
+
+```
+GET https://api.payid.aevr.space/oauth/authorize
+  ?response_type=code
+  &client_id=<client_id>
+  &redirect_uri=https://yourapp.com/callback
+  &scope=openid profile email
+  &state=<random_state>
+  &code_challenge=<challenge>
+  &code_challenge_method=S256
+```
+
+The user will be prompted to log in (if not already) and consent to the requested scopes.
+
+### 3. Exchange the Code for Tokens
+
+After the user approves, PayID redirects to your `redirect_uri` with a `code` parameter. Exchange it for tokens:
+
+```bash
+curl -X POST https://api.payid.aevr.space/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code
+      &code=<auth_code>
+      &redirect_uri=https://yourapp.com/callback
+      &client_id=<client_id>
+      &client_secret=<client_secret>
+      &code_verifier=<verifier>"
+```
+
+```json
+{
+  "access_token": "eyJhbGci...",
+  "id_token": "eyJhbGci...",
+  "refresh_token": "def50200...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+---
+
+## Token Management
+
+### Revoking a Token
+
+```bash
+curl -X POST https://api.payid.aevr.space/oauth/revoke \
+  -d "token=<access_or_refresh_token>&client_id=<id>&client_secret=<secret>"
+```
+
+### Introspecting a Token
+
+```bash
+curl -X POST https://api.payid.aevr.space/oauth/introspect \
+  -d "token=<access_token>&client_id=<id>&client_secret=<secret>"
+```
+
+---
+
+## OpenID Connect Discovery
+
+For standard OIDC clients (e.g., Passport.js, Auth.js), use the discovery document:
+
+```
+GET https://api.payid.aevr.space/.well-known/openid-configuration
+```
+
+The JWKS endpoint for verifying token signatures:
+
+```
+GET https://api.payid.aevr.space/.well-known/jwks.json
+```
+
+---
+
+## Managing Client Secrets
+
+You can have multiple concurrent secrets per client for zero-downtime secret rotation:
+
+```bash
+# Create a new secret
+curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients/<clientId>/secrets \
+  -H "Authorization: Bearer <access_token>"
+
+# Rotate the primary secret (invalidates the old one)
+curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients/<clientId>/rotate-secret \
+  -H "Authorization: Bearer <access_token>"
+```
