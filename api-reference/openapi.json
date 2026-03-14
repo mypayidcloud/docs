@@ -3049,6 +3049,41 @@
         }
       }
     },
+    "/api/v1/me/verify-email": {
+      "post": {
+        "summary": "Request Email Verification",
+        "description": "Requests a new email verification link for the authenticated user.",
+        "tags": ["Users"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Verification email sent" },
+          "401": { "description": "No active session" }
+        }
+      }
+    },
+    "/api/v1/users/verify-email": {
+      "post": {
+        "summary": "Verify Email",
+        "description": "Verifies an email address using a token.",
+        "tags": ["Users"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "token": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email verified successfully" },
+          "400": { "description": "Invalid or expired token" }
+        }
+      }
+    },
     "/api/v1/users/by-paytag/{payTag}": {
       "get": {
         "summary": "Search User By PayTag",
