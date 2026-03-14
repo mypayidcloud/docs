@@ -566,6 +566,10 @@
                   "client_id": {
                     "type": "string",
                     "description": "OAuth client ID for context"
+                  },
+                  "allowUnverifiedEmail": {
+                    "type": "boolean",
+                    "description": "If true, allows login with unverified email"
                   }
                 }
               }
