@@ -24,7 +24,7 @@ For international IDs, use `idNumberType` with country-specific codes like `ng_n
 ## Initiating a Verification
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/kyc/verify \
+curl -X POST https://api.payid.cloud/api/v1/kyc/verify \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -46,7 +46,7 @@ The response contains a `sessionId` you use to track this verification.
 ## Checking Status
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/kyc/verify/<sessionId> \
+curl https://api.payid.cloud/api/v1/kyc/verify/<sessionId> \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -67,7 +67,7 @@ Add `?refresh=true` to fetch the latest status directly from the provider instea
 ## Retrying a Failed Verification
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/kyc/verify/<sessionId>/retry \
+curl -X POST https://api.payid.cloud/api/v1/kyc/verify/<sessionId>/retry \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -92,7 +92,7 @@ Retry strategies:
 Configure which providers are active and their priority for your org:
 
 ```bash
-curl -X PATCH https://api.payid.aevr.space/api/v1/kyc/organizations/<orgId>/config \
+curl -X PATCH https://api.payid.cloud/api/v1/kyc/organizations/<orgId>/config \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,6 +123,6 @@ Your server should respond with a `200 OK`. Requests are signed — validate the
 ## Listing Organization Verifications
 
 ```bash
-curl "https://api.payid.aevr.space/api/v1/kyc/organizations/<orgId>/verifications?status=verified&limit=20" \
+curl "https://api.payid.cloud/api/v1/kyc/organizations/<orgId>/verifications?status=verified&limit=20" \
   -H "Authorization: Bearer <access_token>"
 ```

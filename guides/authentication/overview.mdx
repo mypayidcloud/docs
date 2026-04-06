@@ -20,7 +20,7 @@ Bearer tokens are JWTs issued by the PayID OAuth authorization server. They carr
 Use the token endpoint with the `client_credentials` or `authorization_code` grant:
 
 ```bash
-curl -X POST https://api.payid.aevr.space/oauth/token \
+curl -X POST https://api.payid.cloud/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials&client_id=<id>&client_secret=<secret>&scope=org:read"
 ```
@@ -39,7 +39,7 @@ curl -X POST https://api.payid.aevr.space/oauth/token \
 Pass the access token in every API request via the `Authorization` header:
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId> \
   -H "Authorization: Bearer eyJhbGci..."
 ```
 
@@ -48,7 +48,7 @@ curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
 Access tokens are short-lived (default: 1 hour). Use the `refresh_token` grant to obtain a new access token without re-authenticating:
 
 ```bash
-curl -X POST https://api.payid.aevr.space/oauth/token \
+curl -X POST https://api.payid.cloud/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=refresh_token&refresh_token=<token>&client_id=<id>"
 ```
@@ -62,7 +62,7 @@ API Keys are long-lived credentials scoped to an organization. They are ideal fo
 ### Creating an API Key
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -74,7 +74,7 @@ curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys 
 ### Using an API Key
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId> \
   -H "Authorization: ApiKey pk_live_abc123..."
 ```
 
@@ -90,11 +90,11 @@ If you have an active access token and want to introspect it or get the associat
 
 ```bash
 # Introspect a token (requires client credentials)
-curl -X POST https://api.payid.aevr.space/oauth/introspect \
+curl -X POST https://api.payid.cloud/oauth/introspect \
   -d "token=<access_token>&client_id=<id>&client_secret=<secret>"
 
 # Get user claims from an access token
-curl https://api.payid.aevr.space/oauth/userinfo \
+curl https://api.payid.cloud/oauth/userinfo \
   -H "Authorization: Bearer <access_token>"
 ```
 

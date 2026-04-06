@@ -10,7 +10,7 @@ API Keys provide long-lived, organization-scoped credentials for authenticating 
 ## Creating an API Key
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -44,7 +44,7 @@ The response includes the full key under `key`:
 Include the key in the `Authorization` header using the `ApiKey` scheme:
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId> \
   -H "Authorization: ApiKey ak_live_abc123..."
 ```
 
@@ -73,21 +73,21 @@ API keys can be scoped to specific permissions:
 ### List all keys
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+curl https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ### Get a specific key (metadata only)
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys/<keyId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys/<keyId> \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ### Revoke a key
 
 ```bash
-curl -X DELETE https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys/<keyId> \
+curl -X DELETE https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys/<keyId> \
   -H "Authorization: Bearer <access_token>"
 ```
 

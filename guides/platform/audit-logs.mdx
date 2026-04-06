@@ -10,7 +10,7 @@ Every significant action in your organization is recorded in the **Audit Log** â
 ## Listing Audit Logs
 
 ```bash
-curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?limit=25&page=1" \
+curl "https://api.payid.cloud/api/v1/organizations/<orgId>/audit?limit=25&page=1" \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -19,7 +19,7 @@ curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?limit=25&p
 Refine results with query parameters:
 
 ```bash
-curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?action=member.invite&actorId=<userId>&startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
+curl "https://api.payid.cloud/api/v1/organizations/<orgId>/audit?action=member.invite&actorId=<userId>&startDate=2025-01-01T00:00:00Z&endDate=2025-03-01T00:00:00Z" \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -37,7 +37,7 @@ curl "https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit?action=mem
 ## Getting a Single Log Entry
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/audit/<logId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId>/audit/<logId> \
   -H "Authorization: Bearer <access_token>"
 ```
 

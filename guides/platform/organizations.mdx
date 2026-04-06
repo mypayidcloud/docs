@@ -10,7 +10,7 @@ Organizations are the top-level entity in PayID. Every resource — API keys, OA
 ## Creating an Organization
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations \
+curl -X POST https://api.payid.cloud/api/v1/organizations \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -42,7 +42,7 @@ Every org member has one of the following built-in roles:
 ### Inviting a Member
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/members/invite \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/members/invite \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -60,7 +60,7 @@ POST /api/v1/organizations/<orgId>/members/invitations/<invitationId>/accept
 ### Updating a Member's Role
 
 ```bash
-curl -X PATCH https://api.payid.aevr.space/api/v1/organizations/<orgId>/members/<memberId> \
+curl -X PATCH https://api.payid.cloud/api/v1/organizations/<orgId>/members/<memberId> \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{ "role": "admin" }'
@@ -69,7 +69,7 @@ curl -X PATCH https://api.payid.aevr.space/api/v1/organizations/<orgId>/members/
 ### Removing a Member
 
 ```bash
-curl -X DELETE https://api.payid.aevr.space/api/v1/organizations/<orgId>/members/<memberId> \
+curl -X DELETE https://api.payid.cloud/api/v1/organizations/<orgId>/members/<memberId> \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -82,14 +82,14 @@ curl -X DELETE https://api.payid.aevr.space/api/v1/organizations/<orgId>/members
 Suspending prevents all API calls for the organization's clients and API keys until reactivated.
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/suspend \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/suspend \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ### Transferring Ownership
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/transfer-ownership \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/transfer-ownership \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{ "newOwnerId": "<userId>" }'
@@ -104,6 +104,6 @@ curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/transfer-
 Export all organization data as a JSON archive:
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/export \
+curl https://api.payid.cloud/api/v1/organizations/<orgId>/export \
   -H "Authorization: Bearer <access_token>"
 ```

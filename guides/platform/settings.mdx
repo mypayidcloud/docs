@@ -10,7 +10,7 @@ Organization Settings let you configure security policies that apply to all user
 ## Getting Current Settings
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/settings \
+curl https://api.payid.cloud/api/v1/organizations/<orgId>/settings \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -21,7 +21,7 @@ curl https://api.payid.aevr.space/api/v1/organizations/<orgId>/settings \
 Use `PATCH` to update one or more settings at a time:
 
 ```bash
-curl -X PATCH https://api.payid.aevr.space/api/v1/organizations/<orgId>/settings \
+curl -X PATCH https://api.payid.cloud/api/v1/organizations/<orgId>/settings \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{

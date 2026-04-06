@@ -14,7 +14,7 @@ You'll need an active account on the PayID Platform. Every API call requires eit
 An organization is the root container for everything in PayID — API keys, OAuth clients, members, and analytics all belong to an org.
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations \
+curl -X POST https://api.payid.cloud/api/v1/organizations \
   -H "Authorization: Bearer <your_access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -33,7 +33,7 @@ A successful response returns the organization object including its `id`, which 
 API keys allow you to authenticate API requests without going through OAuth. Use them for server-to-server calls.
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/api-keys \
   -H "Authorization: Bearer <your_access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -53,7 +53,7 @@ curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/api-keys 
 Use your new API Key to authenticate requests using the `Authorization` header with the `ApiKey` scheme:
 
 ```bash
-curl https://api.payid.aevr.space/api/v1/organizations/<orgId> \
+curl https://api.payid.cloud/api/v1/organizations/<orgId> \
   -H "Authorization: ApiKey <your_api_key>"
 ```
 

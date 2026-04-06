@@ -6,12 +6,12 @@
     "version": "1.0.0",
     "contact": {
       "name": "PayID Support",
-      "url": "https://docs.payid.aevr.space"
+      "url": "https://docs.payid.cloud"
     }
   },
   "servers": [
     {
-      "url": "https://api.payid.aevr.space",
+      "url": "https://api.payid.cloud",
       "description": "Production Server"
     },
     {

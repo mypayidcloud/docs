@@ -22,7 +22,7 @@ The PayID Platform implements a full **OAuth 2.0 authorization server** with **O
 Before you can initiate an authorization flow, register an OAuth client for your application:
 
 ```bash
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/clients \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -51,7 +51,7 @@ const challenge = crypto.createHash('sha256').update(verifier).digest('base64url
 ### 2. Redirect the User to the Authorization Endpoint
 
 ```
-GET https://api.payid.aevr.space/oauth/authorize
+GET https://api.payid.cloud/oauth/authorize
   ?response_type=code
   &client_id=<client_id>
   &redirect_uri=https://yourapp.com/callback
@@ -68,7 +68,7 @@ The user will be prompted to log in (if not already) and consent to the requeste
 After the user approves, PayID redirects to your `redirect_uri` with a `code` parameter. Exchange it for tokens:
 
 ```bash
-curl -X POST https://api.payid.aevr.space/oauth/token \
+curl -X POST https://api.payid.cloud/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code
       &code=<auth_code>
@@ -95,14 +95,14 @@ curl -X POST https://api.payid.aevr.space/oauth/token \
 ### Revoking a Token
 
 ```bash
-curl -X POST https://api.payid.aevr.space/oauth/revoke \
+curl -X POST https://api.payid.cloud/oauth/revoke \
   -d "token=<access_or_refresh_token>&client_id=<id>&client_secret=<secret>"
 ```
 
 ### Introspecting a Token
 
 ```bash
-curl -X POST https://api.payid.aevr.space/oauth/introspect \
+curl -X POST https://api.payid.cloud/oauth/introspect \
   -d "token=<access_token>&client_id=<id>&client_secret=<secret>"
 ```
 
@@ -113,13 +113,13 @@ curl -X POST https://api.payid.aevr.space/oauth/introspect \
 For standard OIDC clients (e.g., Passport.js, Auth.js), use the discovery document:
 
 ```
-GET https://api.payid.aevr.space/.well-known/openid-configuration
+GET https://api.payid.cloud/.well-known/openid-configuration
 ```
 
 The JWKS endpoint for verifying token signatures:
 
 ```
-GET https://api.payid.aevr.space/.well-known/jwks.json
+GET https://api.payid.cloud/.well-known/jwks.json
 ```
 
 ---
@@ -130,10 +130,10 @@ You can have multiple concurrent secrets per client for zero-downtime secret rot
 
 ```bash
 # Create a new secret
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients/<clientId>/secrets \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/clients/<clientId>/secrets \
   -H "Authorization: Bearer <access_token>"
 
 # Rotate the primary secret (invalidates the old one)
-curl -X POST https://api.payid.aevr.space/api/v1/organizations/<orgId>/clients/<clientId>/rotate-secret \
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/clients/<clientId>/rotate-secret \
   -H "Authorization: Bearer <access_token>"
 ```
