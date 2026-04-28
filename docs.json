@@ -30,6 +30,7 @@
               "guides/platform/organizations",
               "guides/platform/api-keys",
               "guides/platform/kyc",
+              "guides/platform/hosted-verification-intents",
               "guides/platform/analytics",
               "guides/platform/settings",
               "guides/platform/audit-logs"

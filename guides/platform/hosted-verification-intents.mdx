@@ -1,0 +1,112 @@
+---
+title: "Hosted Verification Intents"
+description: "Implement OAuth-authorized third-party hosted verification with status polling and return URL resolution."
+---
+
+Use hosted verification intents when your app needs to start a KYC journey and hand the user off to a PayID-hosted verification flow.
+
+---
+
+## OAuth Scopes
+
+Request one of the verification management scopes when creating or mutating intents:
+
+- `verification:manage`
+- `verification:write`
+- `kyc:read` (transitional compatibility)
+
+Request one of the verification read scopes when reading status:
+
+- `verification:read`
+- `verification:manage`
+- `kyc:read` (transitional compatibility)
+
+---
+
+## 1) Create an Intent
+
+Create a hosted verification intent for the currently authorized user.
+
+```bash
+curl -X POST https://api.payid.cloud/api/v1/verification-intents \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organizationId": "<orgId>",
+    "source": "api",
+    "idempotencyKey": "intent-req-001",
+    "requirements": {
+      "targetLevel": "kyc_basic"
+    },
+    "returnUrl": "https://yourapp.com/verification/callback"
+  }'
+```
+
+Use the hosted URL returned by this endpoint to redirect the user into the PayID-hosted verification flow.
+
+---
+
+## 2) User Completes Hosted Flow
+
+The user continues onboarding in the hosted PayID flow. Provider orchestration and in-flow progress persistence are handled by PayID.
+
+---
+
+## 3) Poll Verification Status
+
+Use list and detail endpoints to check status from your backend:
+
+```bash
+curl "https://api.payid.cloud/api/v1/users/me/verification-intents?limit=20" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+```bash
+curl "https://api.payid.cloud/api/v1/verification-intents/<intentId>" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+## 4) Resolve the Return URL
+
+When you need the final callback URL for client redirection, resolve it through the API:
+
+```bash
+curl -X POST https://api.payid.cloud/api/v1/verification-intents/<intentId>/resolve-return \
+  -H "Authorization: Bearer <access_token>"
+```
+
+The response includes the configured return target with result query parameters.
+
+---
+
+## Error Handling
+
+Common response patterns:
+
+| Status | Meaning |
+|---|---|
+| `401` | Missing/invalid token |
+| `403` | Token does not include required scope (`insufficient_scope`) |
+| `404` | Intent does not exist or is not accessible |
+| `502` | Upstream provider bootstrap/init failed |
+
+Design recommendation:
+
+- Treat `403` as a scope or consent configuration issue.
+- Retry safely with idempotency keys for create operations.
+- Show users actionable retry guidance on provider bootstrap failures.
+
+---
+
+## Webhooks
+
+Provider callback ingress endpoints are:
+
+- `POST /api/v1/kyc/webhooks/plaid`
+- `POST /api/v1/kyc/webhooks/qoreid`
+
+These are provider-to-PayID callbacks and are not the same as your app's return URL handling for hosted verification intents.
+
+For full endpoint schemas, see [API Reference](/api-reference/introduction).
