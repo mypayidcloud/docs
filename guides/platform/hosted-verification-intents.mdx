@@ -1,13 +1,46 @@
 ---
 title: "Hosted Verification Intents"
-description: "Implement OAuth-authorized third-party hosted verification with status polling and return URL resolution."
+description: "End-to-end guide for third-party apps: OAuth client setup, hosted verification flow, verification status/data retrieval, and reusing existing KYC records."
 ---
 
-Use hosted verification intents when your app needs to start a KYC journey and hand the user off to a PayID-hosted verification flow.
+Use hosted verification intents when your product needs to verify a user identity, but you want PayID to host the verification UX and provider orchestration.
+
+This guide covers the complete flow for third-party apps:
+
+1. Register an OAuth client
+2. Request the right scopes and get user consent
+3. Check whether the user already has usable KYC data
+4. Create and launch a hosted verification intent only when needed
+5. Poll status and fetch verification details
+6. Resolve and use the return URL safely
 
 ---
 
-## OAuth Scopes
+## Architecture at a Glance
+
+The recommended backend-driven sequence is:
+
+1. Your backend obtains an OAuth access token for the user.
+2. Your backend checks existing KYC records.
+3. If existing data is fresh enough, reuse it.
+4. If not, create a verification intent and redirect the user to the hosted URL.
+5. Track intent status and KYC records until completion.
+6. Resolve return URL and redirect the user back into your app.
+
+Why backend-driven? It keeps your OAuth client secret, idempotency handling, and freshness decisions server-side.
+
+---
+
+## Scopes You Should Request
+
+For third-party verification integrations, request these scopes during authorization:
+
+- `openid profile email`
+- `kyc:read`
+- `verification:read`
+- `verification:manage` (or `verification:write`)
+
+Scope behavior for intent endpoints:
 
 Request one of the verification management scopes when creating or mutating intents:
 
@@ -23,7 +56,116 @@ Request one of the verification read scopes when reading status:
 
 ---
 
-## 1) Create an Intent
+## 1) Register an OAuth Client
+
+Create an OAuth client for your organization. Ensure the client can request the scopes listed above.
+
+```bash
+curl -X POST https://api.payid.cloud/api/v1/organizations/<orgId>/clients \
+  -H "Authorization: Bearer <org_admin_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientName": "Acme Verification App",
+    "clientType": "confidential",
+    "redirectUris": ["https://app.acme.com/oauth/callback"],
+    "allowedScopes": [
+      "openid",
+      "profile",
+      "email",
+      "kyc:read",
+      "verification:read",
+      "verification:manage"
+    ],
+    "grantTypes": ["authorization_code", "refresh_token"],
+    "requirePKCE": true
+  }'
+```
+
+Store `clientId` and `clientSecret` securely.
+
+---
+
+## 2) Authorize the User and Exchange Tokens
+
+Start an authorization code flow (with PKCE) and request verification scopes:
+
+```http
+GET /oauth/authorize?response_type=code
+  &client_id=<client_id>
+  &redirect_uri=https://app.acme.com/oauth/callback
+  &scope=openid%20profile%20email%20kyc:read%20verification:read%20verification:manage
+  &state=<csrf_state>
+  &code_challenge=<pkce_challenge>
+  &code_challenge_method=S256
+```
+
+Exchange the authorization code at `/oauth/token` to obtain an access token.
+
+Tip: if `kyc:read` is granted, token/userinfo claims can include summary fields like `kyc_verified`, `kyc_level`, and `kyc_verified_at`. Use this as a quick hint, then rely on KYC record endpoints for full details.
+
+---
+
+## 3) Check Existing KYC Before Starting a New Flow
+
+To avoid unnecessary re-verification, check existing KYC records first.
+
+For OAuth third-party integrations, use:
+
+```bash
+curl "https://api.payid.cloud/api/v1/users/<userId>/kyc" \
+  -H "Authorization: Bearer <user_access_token>"
+```
+
+This endpoint returns user verification records including fields like:
+
+- `status`
+- `verificationLevel`
+- `metadata`
+- `verifiedAt`
+- `expiresAt`
+- `documentsVerified`
+
+You may also see first-party/session-based integrations call:
+
+- `GET /api/v1/users/me/kyc`
+
+### Freshness Decision Pattern
+
+Apply a freshness policy before deciding to create a new intent:
+
+1. Select the newest record where `status` is effectively verified for your policy.
+2. If `expiresAt` exists and is in the past, treat as stale.
+3. If `verifiedAt` is older than your max age (for example 90 days), treat as stale.
+4. If required document types/levels are missing, treat as insufficient.
+5. Only create a new intent when stale/insufficient.
+
+Example policy pseudocode:
+
+```ts
+const MAX_AGE_DAYS = 90;
+
+function shouldStartNewVerification(records: any[]): boolean {
+  const verified = records
+    .filter((r) => String(r.status).toLowerCase().includes("verified"))
+    .sort((a, b) => +new Date(b.verifiedAt || b.updatedAt) - +new Date(a.verifiedAt || a.updatedAt))[0];
+
+  if (!verified) return true;
+
+  if (verified.expiresAt && new Date(verified.expiresAt) < new Date()) {
+    return true;
+  }
+
+  const verifiedAt = new Date(verified.verifiedAt || verified.updatedAt);
+  const ageDays = (Date.now() - verifiedAt.getTime()) / (1000 * 60 * 60 * 24);
+  if (ageDays > MAX_AGE_DAYS) return true;
+
+  return false;
+}
+```
+
+---
+
+## 4) Create a Hosted Verification Intent
 
 Create a hosted verification intent for the currently authorized user.
 
@@ -33,28 +175,47 @@ curl -X POST https://api.payid.cloud/api/v1/verification-intents \
   -H "Content-Type: application/json" \
   -d '{
     "organizationId": "<orgId>",
+    "clientId": "<your_client_id>",
+    "externalUserRef": "user_12345",
     "source": "api",
-    "idempotencyKey": "intent-req-001",
+    "idempotencyKey": "verify-user_12345-v1",
     "requirements": {
       "targetLevel": "kyc_basic"
+    },
+    "prefillData": {
+      "firstName": "Ada",
+      "lastName": "Lovelace",
+      "email": "ada@example.com"
     },
     "returnUrl": "https://yourapp.com/verification/callback"
   }'
 ```
 
-Use the hosted URL returned by this endpoint to redirect the user into the PayID-hosted verification flow.
+The response includes an `intent` object with a `hostedUrl`.
+
+Important behaviors:
+
+- Use idempotency (`idempotencyKey` or `X-Idempotency-Key`) for safe retries.
+- `returnUrl` is validated/sanitized against allowed domains.
+- Replaying an idempotent request can return the existing intent.
 
 ---
 
-## 2) User Completes Hosted Flow
+## 5) Redirect User to the Hosted Flow
 
-The user continues onboarding in the hosted PayID flow. Provider orchestration and in-flow progress persistence are handled by PayID.
+Redirect the user to `intent.hostedUrl` from the create response.
+
+When the hosted page loads, it can redeem the hosted token internally via:
+
+- `POST /api/v1/verification-intents/hosted/{token}/redeem`
+
+You usually do not need to call this yourself unless you are building custom hosted-entry behavior.
 
 ---
 
-## 3) Poll Verification Status
+## 6) Track Status During and After Verification
 
-Use list and detail endpoints to check status from your backend:
+Use detail/list endpoints to track verification progress:
 
 ```bash
 curl "https://api.payid.cloud/api/v1/users/me/verification-intents?limit=20" \
@@ -66,9 +227,45 @@ curl "https://api.payid.cloud/api/v1/verification-intents/<intentId>" \
   -H "Authorization: Bearer <access_token>"
 ```
 
+Common intent statuses include:
+
+- `pending`
+- `in_progress`
+- `provider_initiated`
+- `submitted`
+- `verified`
+- `failed`
+- `cancelled`
+- `expired`
+
+After provider start, the intent may include provider linkage fields such as:
+
+- `kycProvider`
+- `kycRecordId`
+- `providerSessionId`
+
+You can then fetch user KYC records to access detailed verification data/metadata.
+
 ---
 
-## 4) Resolve the Return URL
+## 7) Retrieve Verification Data
+
+Use KYC records as your source of truth for verification outcomes and details:
+
+```bash
+curl "https://api.payid.cloud/api/v1/users/<userId>/kyc" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+Recommended mapping:
+
+1. Match by `sessionId`/provider identifiers when available.
+2. Fall back to latest verified record for the user when needed.
+3. Persist the fields you need (`status`, `verifiedAt`, `expiresAt`, selected metadata) in your own compliance model.
+
+---
+
+## 8) Resolve and Use Return URL
 
 When you need the final callback URL for client redirection, resolve it through the API:
 
@@ -78,6 +275,14 @@ curl -X POST https://api.payid.cloud/api/v1/verification-intents/<intentId>/reso
 ```
 
 The response includes the configured return target with result query parameters.
+
+`redirectUrl` can include contextual values such as:
+
+- `intentId`
+- `status`
+- `providerSessionId`
+
+Handle this URL server-side when possible, then redirect the user.
 
 ---
 
@@ -98,15 +303,36 @@ Design recommendation:
 - Retry safely with idempotency keys for create operations.
 - Show users actionable retry guidance on provider bootstrap failures.
 
+Additional practical errors you may encounter:
+
+- `409` on create intent when idempotency conflicts with invalid state
+- `400` with `provider_validation_error` when submitted verification data is invalid
+
 ---
 
-## Webhooks
+## Recommended Production Strategy
+
+1. Always perform a pre-check for existing KYC before creating a new intent.
+2. Define and document your freshness SLA per product/risk tier.
+3. Use idempotency keys derived from user + purpose + policy version.
+4. Persist intent IDs and KYC record IDs in your internal user compliance table.
+5. Re-check record freshness at critical events (high-value transaction, payout enablement, etc.).
+
+---
+
+## Provider Webhooks (PayID Internal)
 
 Provider callback ingress endpoints are:
 
 - `POST /api/v1/kyc/webhooks/plaid`
 - `POST /api/v1/kyc/webhooks/qoreid`
 
-These are provider-to-PayID callbacks and are not the same as your app's return URL handling for hosted verification intents.
+These are provider-to-PayID callbacks, not your app callback.
+
+Your app integration points remain:
+
+- intent status polling/listing
+- KYC record retrieval
+- return URL resolution
 
 For full endpoint schemas, see [API Reference](/api-reference/introduction).
