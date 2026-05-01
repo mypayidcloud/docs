@@ -107,16 +107,35 @@ Tip: if `kyc:read` is granted, token/userinfo claims can include summary fields 
 
 ## 3) Check Existing KYC Before Starting a New Flow
 
-To avoid unnecessary re-verification, check existing KYC records first.
+To avoid unnecessary re-verification, check existing KYC records before creating a new intent.
 
-For OAuth third-party integrations, use:
+### Preferred: `GET /api/v1/users/{userId}/kyc`
+
+For third-party server-to-server integrations, use the explicit userId endpoint. This is the **recommended** approach because the `userId` is unambiguous, it works reliably with bearer tokens, and it produces cleaner audit logs:
 
 ```bash
 curl "https://api.payid.cloud/api/v1/users/<userId>/kyc" \
-  -H "Authorization: Bearer <user_access_token>"
+  -H "Authorization: Bearer <access_token>"
 ```
 
-This endpoint returns user verification records including fields like:
+<Note>
+  Replace `<userId>` with the ID returned during the OAuth token exchange or stored from a prior user lookup. The token must have the `kyc:read` scope.
+</Note>
+
+### Also supported: `GET /api/v1/users/me/kyc`
+
+The `me` alias resolves the caller's identity from the bearer token and is also accepted for third-party integrations:
+
+```bash
+curl "https://api.payid.cloud/api/v1/users/me/kyc" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+<Note>
+  Prior to the May 2025 fix, this endpoint only accepted session cookies and rejected bearer tokens with a `401 Authentication required` error. If you are self-hosting an older API version, prefer `users/{userId}/kyc` or upgrade to receive the fix.
+</Note>
+
+Both endpoints return the same verification record shape, including fields like:
 
 - `status`
 - `verificationLevel`
@@ -124,10 +143,6 @@ This endpoint returns user verification records including fields like:
 - `verifiedAt`
 - `expiresAt`
 - `documentsVerified`
-
-You may also see first-party/session-based integrations call:
-
-- `GET /api/v1/users/me/kyc`
 
 ### Freshness Decision Pattern
 
