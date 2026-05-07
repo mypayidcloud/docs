@@ -12,6 +12,12 @@
       "description": "Local Development Server"
     }
   ],
+  "security": [
+    { "bearerAuth": [] },
+    { "apiKeyAuth": [] },
+    { "xApiKeyAuth": [] },
+    { "cookieAuth": [] }
+  ],
   "components": {
     "securitySchemes": {
       "bearerAuth": {
@@ -36,16 +42,10 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "payid_session",
-        "description": "Session cookie (`payid_session`) set automatically after login. Used by browser-based flows — no manual header needed."
+        "description": "Session cookie (`payid_session`) set automatically after login. Used by browser-based flows."
       }
     }
   },
-  "security": [
-    { "bearerAuth": [] },
-    { "apiKeyAuth": [] },
-    { "xApiKeyAuth": [] },
-    { "cookieAuth": [] }
-  ],
   "paths": {
     "/oauth/login": {
       "post": {
@@ -711,8 +711,7 @@
               }
             }
           }
-        },
-        "security": []
+        }
       }
     },
     "/oauth/authorize": {
@@ -751,8 +750,7 @@
               }
             }
           }
-        },
-        "security": []
+        }
       },
       "post": {
         "tags": ["OAuth 2.0"],
@@ -789,8 +787,7 @@
               }
             }
           }
-        },
-        "security": []
+        }
       }
     },
     "/oauth/token": {
@@ -2543,8 +2540,7 @@
               }
             }
           }
-        },
-        "security": []
+        }
       }
     },
     "/api/v1/invitations/{token}/decline": {
@@ -2606,8 +2602,7 @@
               }
             }
           }
-        },
-        "security": []
+        }
       }
     },
     "/api/v1/invitations/{token}": {
