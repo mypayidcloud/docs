@@ -1,0 +1,223 @@
+---
+title: "Accessing KYC Records via OAuth"
+description: "Use OAuth 2.0 access tokens to read a user's KYC verification status from a third-party application."
+---
+
+Third-party applications that have been authorized by a user via OAuth can access that user's KYC verification records. Depending on what your app needs, there are two approaches: a lightweight summary via the standard **UserInfo endpoint** (scope-gated), or the full verification history via the **REST KYC endpoints**.
+
+---
+
+## Prerequisites
+
+Before your app can read KYC data, you need:
+
+1. An OAuth client registered for your organization. See [OAuth 2.0 & OpenID Connect](/guides/authentication/oauth-oidc).
+2. The user to have completed the authorization flow and granted at least one of the relevant scopes.
+
+---
+
+## Available Scopes
+
+| Scope | What it enables |
+|---|---|
+| `kyc:read` | Embed a KYC status summary in the access token and expose it via `/oauth/userinfo` |
+| `openid` | Required for OIDC flows (also needed to call `/oauth/userinfo`) |
+
+> Include `kyc:read` (alongside `openid`) in the `scope` parameter of your authorization request.
+
+---
+
+## Step 1 — Request the `kyc:read` Scope
+
+When redirecting the user to the authorization endpoint, include `kyc:read` in your `scope` parameter:
+
+```
+GET https://api.payid.cloud/oauth/authorize
+  ?response_type=code
+  &client_id=<your_client_id>
+  &redirect_uri=https://yourapp.com/callback
+  &scope=openid profile email kyc:read
+  &state=<random_state>
+  &code_challenge=<pkce_challenge>
+  &code_challenge_method=S256
+```
+
+The consent screen shown to the user will list **"View KYC verification status"** as one of the requested permissions.
+
+---
+
+## Step 2 — Exchange the Code for Tokens
+
+After the user approves, exchange the authorization code for tokens as usual:
+
+```bash
+curl -X POST https://api.payid.cloud/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code
+      &code=<auth_code>
+      &redirect_uri=https://yourapp.com/callback
+      &client_id=<client_id>
+      &client_secret=<client_secret>
+      &code_verifier=<pkce_verifier>"
+```
+
+The returned `access_token` will carry `kyc:read` in its scope claim.
+
+---
+
+## Option A — KYC Summary via UserInfo (Recommended)
+
+The simplest way to read KYC status is the standard OIDC **UserInfo endpoint**. When `kyc:read` is in the token scope, the response includes KYC claims alongside the user's profile:
+
+```bash
+curl https://api.payid.cloud/oauth/userinfo \
+  -H "Authorization: Bearer <access_token>"
+```
+
+**Response** (with `kyc:read` scope):
+
+```json
+{
+  "sub": "user_789xyz",
+  "email": "jane@example.com",
+  "name": "Jane Doe",
+  "kyc_verified": true,
+  "kyc_level": "tier2",
+  "kyc_provider": "plaid",
+  "kyc_verified_at": "2024-01-15T10:35:00Z",
+  "kyc_documents": [
+    { "type": "drivers_license", "status": "verified" }
+  ]
+}
+```
+
+### KYC Claims Reference
+
+| Claim | Type | Description |
+|---|---|---|
+| `kyc_verified` | boolean | Whether the user has a verified KYC record for this organization |
+| `kyc_level` | string | Verification tier: `tier1`, `tier2`, or `tier3` |
+| `kyc_provider` | string | Provider used: `plaid` or `qoreid` |
+| `kyc_verified_at` | ISO 8601 | Timestamp of the most recent successful verification |
+| `kyc_documents` | array | List of verified document types and their statuses |
+
+<Note>
+  The UserInfo endpoint returns the **latest verified record** for the user within your organization. If the user has not completed KYC with your org, the KYC claims will be absent.
+</Note>
+
+---
+
+## Option B — Full KYC Record History
+
+For detailed records (all sessions, metadata, expiry, document-level matches), use the dedicated KYC endpoints. These accept the same OAuth Bearer token and do not require an additional scope beyond valid authentication.
+
+### Get the Authenticated User's Records
+
+```bash
+curl https://api.payid.cloud/api/v1/users/me/kyc \
+  -H "Authorization: Bearer <access_token>"
+```
+
+This resolves the user from the token automatically. No user ID is needed.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "kyc_abc123",
+      "userId": "user_789xyz",
+      "organizationId": "org_456",
+      "provider": "plaid",
+      "sessionId": "plaid_session_xyz",
+      "status": "verified",
+      "verificationLevel": "tier2",
+      "documentsVerified": [
+        {
+          "type": "drivers_license",
+          "status": "verified",
+          "verifiedAt": "2024-01-15T10:35:00Z"
+        }
+      ],
+      "verifiedAt": "2024-01-15T10:35:00Z",
+      "expiresAt": "2025-01-15T10:35:00Z",
+      "createdAt": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+### Get Records by User ID
+
+If you have the user's ID from a previous call (e.g., from `/api/v1/me`), you can also use the explicit path. The API enforces that the token's subject matches the requested `userId`:
+
+```bash
+curl https://api.payid.cloud/api/v1/users/<userId>/kyc \
+  -H "Authorization: Bearer <access_token>"
+```
+
+<Warning>
+  A token issued for user A cannot access user B's KYC records. Attempting to do so returns **403 Forbidden**.
+</Warning>
+
+---
+
+## Option C — KYC Claims in the Access Token Itself
+
+When `kyc:read` is granted, the access token JWT itself contains KYC claims. This lets you verify KYC status **without making an extra network call**, by decoding and verifying the token locally:
+
+```json
+{
+  "sub": "user_789xyz",
+  "scope": "openid profile email kyc:read",
+  "kyc_verified": true,
+  "kyc_level": "tier2",
+  "kyc_provider": "plaid",
+  "kyc_verified_at": "2024-01-15T10:35:00Z",
+  "exp": 1705316100
+}
+```
+
+Verify the token signature against the JWKS:
+
+```
+GET https://api.payid.cloud/.well-known/jwks.json
+```
+
+---
+
+## Comparison of Approaches
+
+| Approach | Endpoint | Scope Required | Data Returned |
+|---|---|---|---|
+| **UserInfo** | `GET /oauth/userinfo` | `kyc:read` + `openid` | Latest verified record summary (claims) |
+| **Token claims** | JWT payload | `kyc:read` | Same as UserInfo, no extra request |
+| **Full records** | `GET /api/v1/users/me/kyc` | Any valid auth | Complete history, metadata, documents |
+| **Records by ID** | `GET /api/v1/users/{userId}/kyc` | Any valid auth (own user only) | Same as above |
+
+For most integrations, **UserInfo** is the right choice — it's standards-compliant and avoids tying your app to platform-specific endpoints. Use the REST endpoints when you need the full verification history or detailed document-level metadata.
+
+---
+
+## Checking if the User Has KYC Before Starting a New Flow
+
+Before kicking off a verification intent, call `/users/me/kyc` to see if the user is already verified for your org. This avoids creating a redundant KYC session:
+
+```bash
+curl https://api.payid.cloud/api/v1/users/me/kyc \
+  -H "Authorization: Bearer <access_token>"
+```
+
+If `data` contains a record with `"status": "verified"` and `"verificationLevel"` meets your requirements, skip the verification flow. See [Hosted Verification Intents](/guides/platform/hosted-verification-intents) for details on starting a new flow.
+
+---
+
+## Error Reference
+
+| Status | Code | Cause |
+|---|---|---|
+| `401` | `unauthorized` | No token provided or token expired |
+| `403` | `forbidden` | Token's subject does not match the requested `userId` |
+| `403` | `insufficient_scope` | Token does not include `kyc:read` (for UserInfo KYC claims) |
